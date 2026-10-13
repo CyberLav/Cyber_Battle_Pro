@@ -1,0 +1,59 @@
+name: Build executables
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            script: build:win
+            file: dist/CBP-HQ.exe
+          - os: ubuntu-latest
+            script: build:linux
+            file: dist/CBP-HQ-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run ${{ matrix.script }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ matrix.file }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - name: Package
+        run: |
+          mkdir pkg
+          cp out/windows-latest/CBP-HQ.exe pkg/
+          cp out/ubuntu-latest/CBP-HQ-linux pkg/
+          cp docs/QUICKSTART.md pkg/
+          cd pkg
+          zip CBP-HQ-Windows.zip CBP-HQ.exe QUICKSTART.md
+          zip CBP-HQ-Linux.zip CBP-HQ-linux QUICKSTART.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pkg/CBP-HQ-Windows.zip
+            pkg/CBP-HQ-Linux.zip
+          generate_release_notes: true

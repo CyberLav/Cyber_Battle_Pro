@@ -1,0 +1,44 @@
+{
+  "name": "cyber-battle-pro",
+  "version": "1.8.0",
+  "description": "Cyber Battle Pro: incident response command tool with a Field HQ team server and White Cell console",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "help": "node server.js --help",
+    "white-cell": "node server.js --white-cell",
+    "build": "npm run build:win && npm run build:linux",
+    "build:win": "pkg . --targets node22-win-x64 --no-bytecode --public-packages \"*\" --public --compress GZip --output dist/CBP-HQ.exe",
+    "build:linux": "pkg . --targets node22-linux-x64 --no-bytecode --public-packages \"*\" --public --compress GZip --output dist/CBP-HQ-linux"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "multicast-dns": "^7.2.5",
+    "pdf-lib": "^1.17.1",
+    "pptxgenjs": "^4.0.1",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0",
+    "ws": "^8.22.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": "server.js",
+  "pkg": {
+    "assets": [
+      "public/**/*",
+      "node_modules/pptxgenjs/dist/pptxgen.bundle.js",
+      "node_modules/pdf-lib/dist/pdf-lib.min.js"
+    ]
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.23.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CyberLav/cyber-battle-pro.git"
+  },
+  "homepage": "https://cyberlav.io",
+  "author": "Alexander Lavrinenko"
+}

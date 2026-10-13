@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cyber Battle Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF0F3; --panel:#FFFFFF; --panel2:#F6F8FA; --ink:#16202B; --muted:#5B6774; --line:#D2D8DF;
+  --friendly:#1D5FA8; --hostile:#B42318; --neutral:#2D7A4B; --unknown:#A86B0C; --command:#16202B;
+  --focus:#1D5FA8;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-head:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+[data-theme="dark"]{
+  --bg:#0F151C; --panel:#17202A; --panel2:#1D2833; --ink:#E4E9EE; --muted:#95A2AF; --line:#2B3744;
+  --friendly:#6EA6E6; --hostile:#EE7068; --neutral:#6BC48D; --unknown:#E6B24C; --command:#E4E9EE;
+  --focus:#6EA6E6;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Command bar */
+.bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line);min-height:57px}
+.brand{font:700 20px/1 var(--f-head);letter-spacing:.02em;white-space:nowrap}
+.inc{display:flex;align-items:center;gap:8px;min-width:0}
+.inc-id{font:600 15px var(--f-mono);white-space:nowrap}
+.sev{font:700 13px var(--f-head);padding:2px 8px;border-radius:3px;border:1.5px solid currentColor;white-space:nowrap;letter-spacing:.03em}
+[data-s="1"]{--sevc:var(--hostile)} [data-s="2"]{--sevc:var(--unknown)} [data-s="3"]{--sevc:var(--friendly)} [data-s="4"]{--sevc:var(--neutral)}
+.sev{color:var(--sevc)}
+.clocks{margin-left:auto;display:flex;align-items:center;gap:18px}
+.times{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
+.dtg{font:600 14px var(--f-mono);white-space:nowrap}
+.dtg small{font:600 10px var(--f-body);color:var(--muted);letter-spacing:.06em}
+.loc{font:500 12px var(--f-mono);color:var(--muted);white-space:nowrap}
+.hclock{font:700 28px/1 var(--f-head);font-variant-numeric:tabular-nums;letter-spacing:.01em;white-space:nowrap}
+.hclock.idle{color:var(--muted);font-size:18px;font-weight:600}
+.hclock.closed{color:var(--neutral)}
+.bar-btns{display:flex;gap:6px}
+.ib{border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:7px 11px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap}
+.ib:hover{border-color:var(--muted)}
+.ib .n{display:inline-block;min-width:20px;margin-left:6px;padding:0 5px;border-radius:9px;background:var(--ink);color:var(--panel);font-size:12px;text-align:center}
+.ib.op-unset{border-style:dashed;color:var(--friendly)}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr) 380px;min-height:calc(100% - 57px)}
+.rail{border-right:1px solid var(--line);padding:18px 0;background:var(--panel2)}
+.phase{padding:0 16px;margin-bottom:14px}
+.phase h3{margin:0 0 4px;font:600 13px var(--f-head);letter-spacing:.06em;color:var(--muted)}
+.step-link{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:7px 8px;cursor:pointer;font-size:15px}
+.step-link:hover{background:var(--panel)}
+.step-link.active{background:var(--panel);box-shadow:inset 3px 0 0 var(--friendly);font-weight:600}
+.dot{flex:0 0 22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font:600 12px var(--f-head);color:var(--muted);background:var(--panel)}
+.step-link.nonum .dot{flex-basis:10px;width:10px;height:10px;margin:0 6px}
+.step-link.nonum.done .dot{flex-basis:18px;width:18px;height:18px;margin:0 2px;font-size:10px}
+.step-link.done .dot{background:var(--neutral);border-color:var(--neutral);color:#fff}
+.step-link.active .dot{border-color:var(--friendly);color:var(--friendly)}
+.step-link.done.active .dot{color:#fff}
+.rep{margin-left:auto;font-size:12px;color:var(--muted)}
+.rep.warn{color:var(--unknown);font-weight:600}
+
+main{padding:28px 32px 120px;max-width:840px;width:100%}
+.step-head{margin-bottom:22px}
+.step-head .ph{font:600 14px var(--f-head);color:var(--muted);letter-spacing:.04em}
+.step-head h1{margin:2px 0 4px;font:700 34px/1.1 var(--f-head)}
+.step-head p{margin:0;color:var(--muted)}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px 18px 6px;margin-bottom:16px}
+.sec h2{margin:0 0 12px;font:600 19px var(--f-head);letter-spacing:.02em}
+.sec h2 small{font:500 14px var(--f-body);color:var(--muted);margin-left:8px}
+.fld{margin-bottom:14px}
+.fld>label,.lbl{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
+.fld input,.fld select,.fld textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:9px 11px;font-size:15px}
+.chk{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;cursor:pointer}
+.chk input{width:18px;height:18px}
+.fld input:disabled,.fld textarea:disabled,.fld select:disabled,.gr input:disabled{opacity:.6;cursor:not-allowed}
+.fld input.ro{background:transparent;border-style:dashed;color:var(--muted)}
+.fld input:disabled{opacity:.45}
+.fld textarea{resize:vertical;min-height:64px;line-height:1.45}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.w5{display:grid;grid-template-columns:74px 1fr;gap:10px;align-items:start;margin-bottom:12px}
+.w5 b{font:700 22px/1 var(--f-head);padding-top:9px;color:var(--friendly)}
+.w5 small{display:block;font:500 12px var(--f-body);color:var(--muted);margin-top:3px}
+.w5 textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:9px 11px;font-size:15px;min-height:58px;resize:vertical}
+.muted{color:var(--muted);font-size:14px}
+.marker{margin:6px 0 16px;padding:10px 0;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);text-align:center;font:700 17px var(--f-head);letter-spacing:.08em}
+
+/* Severity matrix */
+.sevgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.sevcard{text-align:left;border:1.5px solid var(--line);background:var(--panel2);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.sevcard b{font:700 22px/1 var(--f-head);color:var(--sevc)}
+.sevcard span{font-size:13px;line-height:1.35}
+.sevcard.on{border-color:var(--sevc);box-shadow:inset 0 0 0 1.5px var(--sevc);background:var(--panel)}
+.sevdetail{border-left:4px solid var(--sevc);background:var(--panel2);border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:14px;font-size:14px}
+.sevdetail div{margin-bottom:4px}
+.sevrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.sevrow button{border:1.5px solid var(--sevc);color:var(--sevc);background:none;border-radius:6px;padding:7px 14px;cursor:pointer;font:700 16px var(--f-head)}
+.sevrow button:disabled,.picerl button:disabled{opacity:.55;cursor:not-allowed}
+.cmdnote{align-self:center;color:var(--muted);font-size:14px;font-weight:600;padding:0 6px}
+.sevrow button.on{background:var(--sevc);color:#fff}
+
+/* Rows */
+.grid-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.gr{display:grid;gap:8px;align-items:center}
+.gr input,.gr select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:14px}
+.gr textarea.tarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:14px;line-height:1.4;resize:vertical;min-height:38px;overflow:hidden;font-family:inherit}
+.gr textarea.tarea:disabled{opacity:.6}
+.gr:has(.tarea){align-items:start}
+.tcell{min-width:0}.tack{display:block;color:var(--neutral);font-size:12px;font-weight:600;margin-top:2px}
+.wcbadge{font:700 12px var(--f-head);letter-spacing:.03em;color:#fff;background:var(--unknown);border-radius:3px;padding:2px 8px;white-space:nowrap}
+.banner.inject{border-color:var(--unknown)}.banner.inject b{color:var(--unknown)}
+.banner.task{border-color:var(--hostile)}.banner.task b{color:var(--hostile)}
+.credit{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:13px;color:var(--muted)}
+.credit a{color:var(--friendly);text-decoration:none;font-weight:600}.credit a:hover{text-decoration:underline}
+.gr.head{font-size:12px;font-weight:600;color:var(--muted)}
+.gr .pfx{font:600 14px var(--f-head);color:var(--muted);white-space:nowrap}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:4px}
+.x:hover{color:var(--hostile)}
+.add{border:1px dashed var(--line);background:none;border-radius:6px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:14px;color:var(--friendly);margin-bottom:14px}
+.status{font-weight:600}
+.status[data-v="Blocked"]{color:var(--hostile)} .status[data-v="Done"]{color:var(--neutral)} .status[data-v="In progress"]{color:var(--friendly)}
+
+.picerl{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px}
+.picerl button{border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:10px 4px;cursor:pointer;font:600 15px var(--f-head);letter-spacing:.02em}
+.picerl button.on{background:var(--friendly);border-color:var(--friendly);color:#fff}
+
+/* Cards and tables */
+.hist details{border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin-bottom:8px;background:var(--panel2)}
+.hist summary{cursor:pointer;font-weight:600}
+.hist pre{white-space:pre-wrap;font:13px/1.5 var(--f-mono);margin:8px 0 2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{font-size:13px;padding:3px 9px;border-radius:12px;border:1px solid var(--line)}
+.chip.ok{border-color:var(--neutral);color:var(--neutral)}
+.fcard{border:1px solid var(--line);border-left:4px solid var(--hostile);border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:10px;background:var(--panel2)}
+.hsum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.hsum div{border:1px solid var(--line);border-left:4px solid var(--hc);border-radius:0 6px 6px 0;padding:8px 10px;background:var(--panel2)}
+.hsum b{display:block;font:700 26px/1.1 var(--f-head);color:var(--hc)}.hsum span{font-size:13px;color:var(--muted)}
+.hs-compromised{--hc:var(--hostile)}.hs-isolated{--hc:var(--unknown)}.hs-cleaned{--hc:var(--friendly)}.hs-restored{--hc:var(--neutral)}
+select.hstat{font-weight:700;color:var(--hc);border:1.5px solid var(--hc);border-radius:6px;padding:5px 8px;background:var(--panel)}
+.tbl.hosts td{vertical-align:middle}
+.chip.tech{display:inline-flex;align-items:center;gap:4px;border-color:var(--friendly);color:var(--friendly);font-weight:600}.chip.tech .x{font-size:16px;padding:0 2px}
+.fs-n.tech{border-color:var(--friendly);color:var(--friendly)}
+@media(max-width:600px){.hsum{grid-template-columns:repeat(2,1fr)}
+  .tbl.hosts tr:first-child{display:none}
+  .tbl.hosts,.tbl.hosts tbody{display:block}
+  .tbl.hosts tr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .tbl.hosts td{border:0;padding:0;font-size:13px}
+  .tbl.hosts td:nth-child(1){align-self:center;font-size:15px}
+  .tbl.hosts td:nth-child(3)::before{content:'First seen ';color:var(--muted)}
+  .tbl.hosts td:nth-child(4)::before{content:'Findings ';color:var(--muted)}
+  .tbl.hosts td:nth-child(4) small{display:inline!important;margin-left:4px}
+  .tbl.hosts td:nth-child(5){grid-column:1/-1;color:var(--muted)}
+  .tbl.hosts td:nth-child(5) small{display:inline!important;margin-left:4px}}
+.fcard summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;list-style:none}
+.fcard summary::-webkit-details-marker{display:none}
+.fcard summary::before{content:'▸';color:var(--muted);margin-right:-4px}.fcard[open] summary::before{content:'▾'}
+.fcard[open] summary{margin-bottom:8px}
+.fs-time{font:500 12px var(--f-mono);color:var(--muted)}.fs-type{font-size:13px;color:var(--hostile);font-weight:600}
+.fs-ioa{flex:1 1 220px;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fs-n{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:0 7px}
+.fcard.hidden-dup{opacity:.55;border-left-color:var(--line)}
+.fcard .fh{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font:500 12px var(--f-mono);color:var(--muted);margin-bottom:6px}
+.fcard .fh b{font:700 15px var(--f-body);color:var(--ink)}
+.fcard dl{display:grid;grid-template-columns:170px 1fr;gap:3px 10px;margin:0;font-size:14px}
+.fcard dt{color:var(--muted)} .fcard dd{margin:0;white-space:pre-wrap;word-break:break-word}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}
+.tbl th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+.tbl td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+.tbl code{font:13px var(--f-mono)}
+.tbl td:first-child{white-space:nowrap}
+.tw{overflow-x:auto}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+.summary div{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.summary b{display:block;font:700 26px/1.1 var(--f-head)}
+.summary span{font-size:13px;color:var(--muted)}
+.dup{border:1px solid var(--unknown);border-radius:6px;padding:10px 12px;margin-bottom:10px}
+.dup .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+.dup .pair div{background:var(--panel2);border-radius:6px;padding:8px 10px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+.dup .pair small{display:block;font:500 12px var(--f-mono);color:var(--muted);margin-bottom:4px}
+.dup .why{font-size:13px;color:var(--unknown);font-weight:600;margin-bottom:8px}
+.filebtn{position:relative;overflow:hidden;display:inline-block}
+.art-btns{display:flex;gap:6px;flex-wrap:wrap}
+.arts{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.art{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.art img{width:56px;height:42px;object-fit:cover;border-radius:4px}
+.art .ico{width:56px;height:42px;display:grid;place-items:center;border-radius:4px;background:var(--line);font:700 12px var(--f-head);color:var(--muted)}
+.art b{font-size:14px;word-break:break-all}
+.art small{display:block;font-size:12px;color:var(--muted)}
+.art small.h{font-family:var(--f-mono);font-size:11px;word-break:break-all}
+.artloc{width:100%;margin:-2px 0 4px;background:var(--panel);border:1px dashed var(--line);border-radius:6px;padding:7px 10px;font-size:13px}
+.refbox{border:1px dashed var(--line);border-radius:6px;padding:12px 12px 2px;margin-top:10px}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* Action bar */
+.actions{position:sticky;bottom:0;display:flex;gap:8px;flex-wrap:wrap;padding:14px 0 calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,var(--bg) 70%,transparent)}
+.btn{border-radius:6px;padding:11px 18px;font-weight:600;font-size:15px;cursor:pointer;border:1px solid var(--line);background:var(--panel)}
+.btn.primary{background:var(--friendly);border-color:var(--friendly);color:#fff}
+.btn.danger{background:var(--hostile);border-color:var(--hostile);color:#fff}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.spacer{flex:1}
+
+/* Log */
+.log{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;height:calc(100vh - 57px);position:sticky;top:57px}
+.log-head{padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.log-head h2{margin:0 0 2px;font:700 22px var(--f-head)}
+.log-head p{margin:0;font-size:13px;color:var(--muted)}
+.qa{padding:12px 18px;border-bottom:1px solid var(--line)}
+.types{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tb{border:1px solid var(--line);background:none;border-radius:14px;padding:3px 10px;font-size:13px;font-weight:600;cursor:pointer}
+.tb.on[data-t="friendly"]{background:var(--friendly);border-color:var(--friendly);color:#fff}
+.tb.on[data-t="hostile"]{background:var(--hostile);border-color:var(--hostile);color:#fff}
+.tb.on[data-t="neutral"]{background:var(--neutral);border-color:var(--neutral);color:#fff}
+.tb.on[data-t="unknown"]{background:var(--unknown);border-color:var(--unknown);color:#fff}
+.qa-row{display:flex;gap:6px}
+.qa-row input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:9px 11px;font-size:15px}
+.entries{flex:1;overflow:auto;padding:6px 18px 12px;list-style:none;margin:0}
+.entries li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.entries .t{font:500 12px var(--f-mono);color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.entries .by{font-weight:700;color:var(--ink)}
+.entries .bar-c{width:4px;border-radius:2px;background:var(--command)}
+.entries li[data-t="friendly"] .bar-c{background:var(--friendly)}
+.entries li[data-t="hostile"] .bar-c{background:var(--hostile)}
+.entries li[data-t="neutral"] .bar-c{background:var(--neutral)}
+.entries li[data-t="unknown"] .bar-c{background:var(--unknown)}
+.entries .txt{font-size:14px;white-space:pre-wrap;word-break:break-word}
+.entries li.dupe{opacity:.5}
+.empty{color:var(--muted);font-size:14px;padding:16px 0}
+.log-tools{display:flex;align-items:center;gap:8px;padding:8px 18px 0;font-size:13px;color:var(--muted)}
+.log-foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap}
+.log-foot .btn{padding:8px 12px;font-size:14px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.close-log{display:none}
+.team .tdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--muted);margin-right:7px;vertical-align:middle}
+.team[data-st="online"] .tdot{background:var(--neutral)}
+.team[data-st="connecting"] .tdot,.team[data-st="offline"] .tdot{background:var(--unknown);animation:blink 1s infinite}
+.team[data-st="denied"] .tdot{background:var(--hostile)}
+@keyframes blink{50%{opacity:.25}}
+.mlist{list-style:none;padding:0;margin:8px 0 0}.mlist li{padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.rtag{font:700 11px var(--f-head);background:var(--friendly);color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px}
+.mlist li{overflow:hidden}
+.mlist b{display:inline-block;min-width:44px;font-family:var(--f-mono)}
+dialog.wide{width:min(760px,94vw)}
+a.btn{color:var(--ink);display:inline-block}
+.icp{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.icp-qr{text-align:center}.icp-qr img{width:190px;height:190px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:4px}.icp-qr small{display:block;color:var(--muted);font-size:12px}
+.icp-team{margin:0;font:700 26px/1.1 var(--f-head)}
+.icp-addr{display:flex;flex-wrap:wrap;gap:6px}
+.icp-a{border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:6px 10px;cursor:pointer;font:600 15px var(--f-mono);text-align:left}
+.icp-a small{display:block;font:500 11px var(--f-body);color:var(--muted)}
+.icp-code{font:700 32px/1.1 var(--f-mono);letter-spacing:.05em}
+.icp-check{margin-top:14px;border-radius:6px;padding:10px 12px;border:1px solid var(--line);font-size:14px}
+.icp-check.ok{border-color:var(--neutral)}.icp-check.ok b{color:var(--neutral)}
+.icp-check.bad{border-color:var(--hostile)}.icp-check.bad b{color:var(--hostile);display:block;margin-bottom:4px}
+.icp-check .btn{margin-top:8px}
+#endBar{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--hostile);color:#fff;padding:10px 18px;font-size:15px;display:none;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+#endBar.show{display:block}
+@media(max-width:600px){.icp{grid-template-columns:1fr}.icp-qr img{width:160px;height:160px}}
+.banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1.5px solid var(--friendly);border-left-width:6px;border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.banner b{font:700 17px var(--f-head);letter-spacing:.03em}.banner span{color:var(--muted);font-size:14px;flex:1;min-width:180px}
+
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:22px;width:min(420px,92vw)}
+dialog::backdrop{background:rgba(10,15,20,.45)}
+dialog h2{margin:0 0 4px;font:700 24px var(--f-head)}
+dialog p{margin:0 0 14px;color:var(--muted);font-size:14px}
+
+.toast{white-space:nowrap;position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:6px;font-weight:600;opacity:0;transition:.2s;z-index:60;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:1180px){
+  .layout{grid-template-columns:220px minmax(0,1fr)}
+  .log{position:fixed;right:0;top:0;height:100%;width:min(420px,100%);z-index:50;transform:translateX(100%);transition:transform .2s;box-shadow:-8px 0 24px rgba(0,0,0,.18);padding-top:env(safe-area-inset-top,0px)}
+  .log.open{transform:none}
+  .close-log{display:inline-block;float:right}
+  .sevgrid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:760px){
+  .bar{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"brand brand" "btns btns" "inc h" "z z";gap:6px 10px;padding:8px 14px}
+  .bar-btns{flex-wrap:wrap}
+  .inc{flex-wrap:wrap;row-gap:4px;align-self:center}
+  .clocks{display:contents}
+  .times{grid-area:z;align-items:flex-start}
+  .hclock{grid-area:h;align-self:center;justify-self:end}
+  .brand{grid-area:brand;font-size:18px;align-self:center}
+  .bar-btns{grid-area:btns}
+  .inc{grid-area:inc}
+  .dtg{font-size:12px}.loc{font-size:11px}
+  .hclock{font-size:22px}
+  .ib{padding:6px 9px;font-size:13px}
+  .layout{grid-template-columns:1fr}
+  .rail{display:flex;overflow-x:auto;gap:4px;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line)}
+  .phase{display:contents}
+  .phase h3{display:none}
+  .step-link{white-space:nowrap;padding:6px 10px;width:auto}
+  .step-link.active{box-shadow:inset 0 -3px 0 var(--friendly)}
+  main{padding:20px 14px 110px}
+  .step-head h1{font-size:28px}
+  .row2{grid-template-columns:1fr}
+  .picerl{grid-template-columns:repeat(3,1fr)}
+  .sevgrid{grid-template-columns:1fr}
+  .w5{grid-template-columns:1fr;gap:4px}
+  .w5 b{padding-top:0;font-size:19px}
+  .gr{grid-template-columns:1fr !important}
+  .gr.head{display:none}
+  .gr.box{border:1px solid var(--line);border-radius:6px;padding:8px;position:relative}
+  .gr.box .x{position:absolute;top:2px;right:4px}
+  .fcard dl{grid-template-columns:1fr}
+  .fcard dt{margin-top:4px}
+  .dup .pair{grid-template-columns:1fr}
+  .actions .btn{flex:1;padding:10px 8px}
+  .actions .btn.primary,.actions .btn.danger{flex:1 1 100%}
+  .actions .spacer{display:none}
+  .toast{bottom:140px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">Cyber Battle Pro</div>
+  <div class="inc"><span class="inc-id" id="barId">No incident</span><span class="sev" id="barSev" hidden></span><span class="wcbadge" id="wcBadge" hidden title="The White Cell is connected. It sees your incident status and the RFIs and RFCs you address to WC.">WC · White Cell</span></div>
+  <div class="clocks">
+    <div class="times"><span class="dtg" id="dtg"></span></div>
+    <span class="hclock idle" id="hclock" title="Time since H hour (incident declared)">Not declared</span>
+  </div>
+  <div class="bar-btns">
+    <button class="ib team" id="teamBtn" data-st="solo"><i class="tdot"></i><span id="teamTxt">Solo</span></button>
+    <button class="ib op-unset" id="opBtn">Set operator</button>
+    <button class="ib" id="themeBtn" aria-label="Switch theme">Dark</button>
+    <button class="ib" id="logBtn">Log<span class="n" id="logCount">0</span></button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="rail" id="rail" aria-label="Incident steps"></nav>
+  <main id="main"></main>
+  <aside class="log" id="log" aria-label="Session log">
+    <div class="log-head">
+      <button class="ib close-log" id="closeLog">Close</button>
+      <h2>Session log</h2>
+      <p>Kept in memory only. Closing or refreshing the page clears it.</p>
+      <div class="legend">
+        <span><i style="background:var(--command)"></i>Command</span>
+        <span><i style="background:var(--friendly)"></i>Friendly</span>
+        <span><i style="background:var(--hostile)"></i>Hostile</span>
+        <span><i style="background:var(--neutral)"></i>Info</span>
+        <span><i style="background:var(--unknown)"></i>Unconfirmed</span>
+      </div>
+    </div>
+    <div class="qa">
+      <div class="types" id="types">
+        <button class="tb on" data-t="friendly">Friendly action</button>
+        <button class="tb" data-t="hostile">Hostile activity</button>
+        <button class="tb" data-t="neutral">Info</button>
+        <button class="tb" data-t="unknown">Unconfirmed</button>
+      </div>
+      <div class="qa-row">
+        <input id="qaText" placeholder="What happened? Press Enter to log" aria-label="Log entry">
+        <button class="btn primary" id="qaAdd">Log</button>
+      </div>
+    </div>
+    <div class="log-tools"><label><input type="checkbox" id="showMerged"> Show merged duplicates</label></div>
+    <ul class="entries" id="entries"></ul>
+    <div class="log-foot">
+      <button class="btn primary" id="sendBtn">Send to IC</button>
+      <button class="btn" id="pptBtn">Export to PowerPoint</button>
+      <button class="btn" id="copyLog">Copy log</button>
+      <button class="btn" id="clearBtn">Clear session</button>
+    </div>
+  </aside>
+</div>
+
+<dialog id="opDlg">
+  <h2 id="opTitle">Operator</h2>
+  <p id="opText">Your name and callsign sign your findings and log entries, and identify you to the IC on the net.</p>
+  <div class="fld"><label for="opName">Name</label><input id="opName" placeholder="Rank, name"></div>
+  <div class="fld"><label for="opCall">Callsign</label><input id="opCall" placeholder="e.g. 11"></div>
+  <div class="fld"><label for="opRole">Role</label><select id="opRole"><option>Analyst</option><option>Incident Commander</option><option>2IC</option><option>Intel</option></select></div>
+  <div class="fld"><label for="opInc">Incident ID</label><input id="opInc" placeholder="Given by the IC"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="opCancel">Cancel</button><button class="btn primary" id="opSave">Save operator</button></div>
+</dialog>
+<dialog id="teamDlg">
+  <h2>Team session</h2>
+  <div id="teamBody"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px" id="teamBtns"></div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ State (memory only) ============ */
+const S = {
+  sid:Math.random().toString(36).slice(2,8), seq:0,
+  op:{name:'',call:'',role:'Analyst'},
+  hHour:null, endHour:null, phase:null,
+  forms:{}, roster:[], tasks:[], backbriefs:[], sitreps:[], fragos:[],
+  log:[], docs:[], aars:[], wc:[], hoststat:[], findings:[], rfis:[], rfcs:[], blobs:{}, urls:{}, received:{}, decisions:{}, lastImport:null, done:{}
+};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const pad=n=>String(n).padStart(2,'0');
+const dtg=(d=new Date())=>pad(d.getUTCHours())+pad(d.getUTCMinutes())+' '+pad(d.getUTCDate())+' '+MON[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(2);
+const local=(d=new Date())=>{try{return d.toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false,timeZoneName:'short'})}catch(e){return pad(d.getHours())+':'+pad(d.getMinutes())+' L'}};
+const stamp=d=>`${dtg(d)} (${local(d)})`;
+const tzName=()=>{try{return new Intl.DateTimeFormat('en-CA',{timeZoneName:'short'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value}catch(e){return 'local'}};
+const ldtg=(d=new Date())=>pad(d.getHours())+pad(d.getMinutes())+' '+pad(d.getDate())+' '+MON[d.getMonth()]+' '+String(d.getFullYear()).slice(2)+' '+tzName();
+const inLocal=ms=>ldtg(new Date(Date.now()+ms));
+function parseDTG(s){s=String(s||'');const mi=x=>MON.findIndex(y=>y.toLowerCase()===x.toLowerCase());
+  let m=/\b(\d{2})(\d{2})Z?\s+(\d{1,2})\s+([A-Za-z]{3})\s+(\d{2})\b/.exec(s);
+  if(m&&mi(m[4])>=0)return new Date(Date.UTC(2000+ +m[5],mi(m[4]),+m[3],+m[1],+m[2]));
+  m=/(\d{2})(\d{2})(\d{2})Z\s*([A-Za-z]{3})\s*(\d{2})/.exec(s);
+  if(m&&mi(m[4])>=0)return new Date(Date.UTC(2000+ +m[5],mi(m[4]),+m[1],+m[2],+m[3]));return null;}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const F=id=>(S.forms[id]??={});
+const incId=()=>F('declare').id||S.op.inc||'INC';
+const nid=k=>`${S.sid}-${k}${++S.seq}`;
+const me=()=>S.op.name||'';
+const rosterNames=()=>S.roster.filter(r=>r.name.trim()).map(r=>r.name.trim());
+const rosterBy=role=>{const r=S.roster.find(x=>x.role===role);return r&&r.name.trim()?r.name.trim():''};
+const PHASES=['Preparation','Identification','Containment','Eradication','Recovery','Lessons learned'];
+const curPhase=()=>S.phase||'Identification';
+const phaseTasks=()=>S.tasks.map((t,i)=>({t,i})).filter(x=>(x.t.phase||'Identification')===curPhase());
+function canCommand(){if(!SYNC.info)return true;if(SYNC.info.ic)return true;return !!SYNC.joined&&(SYNC.role==='IC'||SYNC.role==='2IC');}
+const SEVS={
+ SEV1:{n:1,criteria:'Active exploitation, critical system down, confirmed data exfiltration, or regulatory clock started',esc:'Immediate exec and legal notification. IC activated within 15 min.',bp:'Compress steps 7 to 13: act on verbal direction immediately, write the SMESC order afterward to confirm.'},
+ SEV2:{n:2,criteria:'Confirmed compromise, contained blast radius, no active exfiltration confirmed',esc:'Exec notified within 1 hr. IC activated within 30 min.',bp:'Abbreviate the detailed estimate; move to the containment order faster.'},
+ SEV3:{n:3,criteria:'Suspected compromise, unconfirmed, limited scope',esc:'Team lead notified. IC activated within 2 hrs.',bp:'Full 16 step tempo followed.'},
+ SEV4:{n:4,criteria:'Anomaly requiring investigation, no confirmed compromise',esc:'Standard triage queue.',bp:'Investigation only; full activation not required unless escalated.'}
+};
+const sevKey=()=>F('declare').sev||'SEV2';
+const ATTACK=[
+ ['Initial Access',[['T1566.001','Phishing: Spearphishing Attachment'],['T1566.002','Phishing: Spearphishing Link'],['T1190','Exploit Public-Facing Application'],['T1133','External Remote Services'],['T1078','Valid Accounts'],['T1195','Supply Chain Compromise']]],
+ ['Execution',[['T1059.001','Command and Scripting Interpreter: PowerShell'],['T1059.003','Command and Scripting Interpreter: Windows Command Shell'],['T1204','User Execution'],['T1047','Windows Management Instrumentation'],['T1053.005','Scheduled Task/Job: Scheduled Task']]],
+ ['Persistence',[['T1547.001','Registry Run Keys / Startup Folder'],['T1543.003','Create or Modify System Process: Windows Service'],['T1136','Create Account'],['T1505.003','Server Software Component: Web Shell']]],
+ ['Privilege Escalation',[['T1068','Exploitation for Privilege Escalation'],['T1548.002','Abuse Elevation Control Mechanism: Bypass UAC']]],
+ ['Defense Evasion',[['T1562.001','Impair Defenses: Disable or Modify Tools'],['T1070.001','Indicator Removal: Clear Windows Event Logs'],['T1027','Obfuscated Files or Information'],['T1218','System Binary Proxy Execution'],['T1036','Masquerading']]],
+ ['Credential Access',[['T1003.001','OS Credential Dumping: LSASS Memory'],['T1110','Brute Force'],['T1555','Credentials from Password Stores'],['T1558.003','Steal or Forge Kerberos Tickets: Kerberoasting']]],
+ ['Discovery',[['T1087','Account Discovery'],['T1018','Remote System Discovery'],['T1046','Network Service Discovery'],['T1082','System Information Discovery']]],
+ ['Lateral Movement',[['T1021.001','Remote Services: Remote Desktop Protocol'],['T1021.002','Remote Services: SMB/Windows Admin Shares'],['T1570','Lateral Tool Transfer']]],
+ ['Collection',[['T1560','Archive Collected Data'],['T1005','Data from Local System']]],
+ ['Command and Control',[['T1071.001','Application Layer Protocol: Web Protocols'],['T1105','Ingress Tool Transfer'],['T1572','Protocol Tunneling'],['T1219','Remote Access Software']]],
+ ['Exfiltration',[['T1041','Exfiltration Over C2 Channel'],['T1567.002','Exfiltration Over Web Service: to Cloud Storage']]],
+ ['Impact',[['T1486','Data Encrypted for Impact'],['T1490','Inhibit System Recovery'],['T1489','Service Stop'],['T1485','Data Destruction']]]];
+const attackLabel=id=>{for(const [tac,list] of ATTACK)for(const [i,n] of list)if(i===id)return `${i} ${n} (${tac})`;return id;};
+const INC_TYPES=['Malware','Ransomware','Phishing','Business email compromise','Unauthorized access','Privilege escalation','Lateral movement','Data exfiltration','Denial of service','Web application attack','Insider threat','Cloud account compromise','Other'];
+
+function newId(){const d=new Date();return 'INC-'+String(d.getUTCFullYear()).slice(2)+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+'-'+pad(Math.floor(Math.random()*90)+10)}
+function addLog(type,text,src){S.log.push({id:nid('l'),ts:new Date(),type,text,src:src||'',by:me(),call:S.op.call||'',origin:S.sid});renderLog();}
+
+/* ============ Step definitions ============ */
+const phaseList=(k,label,def)=>({k,label,type:'list',prefix:'Phase',add:'Add phase',cols:[{f:'text',ph:'Phase'}],def:()=>def.map(t=>({text:t}))});
+const STEPS=[
+ {id:'wngo',phase:'Orders',command:true,title:'Warning order',purpose:'Get the section moving before full orders are ready.',
+  history:()=>docHistory('wngo'),
+  header:()=>[`WARNING ORDER: ${incId()}  ${ldtg()}`,`${sevKey()}   From: ${F('declare').ic||'IC'}`],
+  sections:[{fields:[
+     {k:'sit',label:'Situation',type:'area',def:'Gentlemen, we have a potentially compromised network.'},
+     {k:'mission',label:'Mission / probable tasks',type:'area',def:'Section will deploy to the affected environment to identify, contain and eradicate the threat.\nProbable tasks: scope affected hosts, collect volatile evidence, contain.'},
+     {row:[{k:'orders',label:`Time & location of orders (${tzName()})`,def:()=>inLocal(18e5)+', [location / bridge]'},{k:'nmb',label:`No move before (${tzName()})`,def:()=>inLocal(9e5)}]},
+     {k:'special',label:'Special instructions',type:'area',def:'No changes on affected hosts until orders are issued. Out of band communications only.'},
+     {k:'admin',label:'Administration',type:'area',def:'Laptop with EDR and SIEM access, charger, notebook.'}]}],
+  primary:{label:'Issue warning order',run:()=>{const w=F('wngo');pushDoc('wngo','WARNING ORDER',stepText(STEP('wngo')),true);addLog('command',`WARNING ORDER issued to ${rosterNames().join(', ')||'section'}.\nOrders: ${w.orders}. NMB: ${w.nmb}.`,'Warning order');return true;}}},
+
+ {id:'bb',phase:'Orders',command:true,title:'Back brief',purpose:'Back brief to the company commander: Situation, CONOPS, key coordinating instructions, concerns.',
+  history:()=>docHistory('bb'),
+  header:()=>[`BACK BRIEF: ${incId()}`,`From: ${F('declare').ic||'IC'}      To: ${F('bb').to||'Company commander'}      Time: ${ldtg()}`],
+  sections:[
+   {h:'Situation',fields:[
+     {k:'to',label:'To',def:'Company commander'},
+     {k:'changed',label:'Has the situation changed?',type:'area',def:'',ph:'Has the situation changed since the warning order?'},
+     {k:'confirm',label:'Confirm intent',type:'area',def:'Sir, as I understand it, your intent is to defend the network and eradicate the threat. [Repeat the intent of 1UP]'},
+     {k:'mission',label:'Mission statement',type:'area',def:()=>F('wngo').mission||'[Mission as given]'}]},
+   {h:'CONOPS',sub:'Concept of operations you intend to execute',fields:[
+     {k:'intent',label:'My intent',def:'To defend the network and eradicate the threat.'},
+     phaseList('som','My scheme of manoeuvre',['Deploy','Defensive operation','Report']),
+     {k:'me',label:'My main effort',def:'Execution of the Incident Response Plan.'},
+     {k:'end',label:'My end state',def:'Threat eliminated, incident report submitted.'}]},
+   {h:'Key coordinating instructions',fields:[
+     {k:'timings',label:`Timings (${tzName()})`,type:'list',add:'Add timing',cols:[{f:'when',ph:'When',w:'.6fr'},{f:'what',ph:'What'}],def:()=>[{when:(F('wngo').orders||inLocal(18e5)).split(',')[0],what:'Orders'},{when:F('wngo').nmb||inLocal(9e5),what:'No move before'}]},
+     {k:'locs',label:'Locations',type:'list',add:'Add location',cols:[{f:'text',ph:'Location'}],def:()=>[{text:((F('wngo').orders||'').split(',').slice(1).join(',').trim())||'[Bridge / room / host]'}]}]},
+   {h:'Concerns',sub:'Legitimate concerns you may have',fields:[{k:'concerns',label:'Concerns',type:'list',add:'Add concern',cols:[{f:'text',ph:'Concern'}],def:()=>[{text:''}]}]}],
+  primary:{label:'Deliver back brief',run:()=>{
+     const f=F('bb');pushDoc('bb','BACK BRIEF',stepText(STEP('bb')),false);
+     const c=(f.concerns||[]).map(x=>x.text).filter(Boolean);
+     addLog('command',`BACK BRIEF delivered to ${f.to||'company commander'}.${f.changed?'\nSituation changed: '+f.changed:''}${c.length?'\nConcerns: '+c.join('; '):''}`,'Back brief');
+     return true;}}},
+
+ {id:'orders',phase:'Orders',command:true,history:()=>docHistory('orders'),title:'Orders (SMESC)',purpose:'Annex C sequence: Situation, higher intent, mission, execution, service support, command and signal.',
+  header:()=>{const f=F('orders');return [`INCIDENT ORDER: ${incId()}`,`Issued by: ${f.issuer||''}      Time: ${stamp(new Date())}`]},
+  sections:[
+   {h:'Header',fields:[{k:'issuer',label:'Issued by (IC name / role)',def:()=>F('declare').ic||'[IC name / role]'}]},
+   {h:'Situation',fields:[
+     {k:'enemy',label:'Enemy',type:'area',def:'Unknown. Potential early attribution: hacktivists, criminals or state APT.'},
+     {k:'friendly',label:'Friendly forces',type:'area',def:'SOC on shift, IT operations, [MSSP / vendor] currently engaged.'},
+     {k:'threat',label:'Threat',type:'area',def:()=>`${F('declare').what||'[What we are dealing with]'} Confidence: [low / medium / high].`},
+     {k:'sitmore',label:'Additional lines',type:'list',add:'Add line',cols:[{f:'text',ph:'Line'}],def:()=>[]}]},
+   {h:'Higher intent',sub:'2UP and 1UP',fields:[
+     {k:'up2',label:'2UP intent',def:'To ensure enterprise systems remain functional and trusted.'},
+     {k:'up1',label:'1UP intent',def:'To conduct defensive operations to detect, contain, and eradicate threats on the network.'},
+     {k:'up1me',label:'1UP main effort',def:'Execution of the Incident Response Plan.'},
+     phaseList('up1som','1UP scheme of manoeuvre',['Deploy','Defensive operation','Report'])]},
+   {h:'Attachments / detachments',fields:[{k:'attach',label:'Attachments / detachments',def:'One person from intelligence attached for the duration of the incident.'}]},
+   {h:'Mission',fields:[{k:'mission',label:'Mission statement',type:'area',def:()=>`Team will be deployed to [affected system / environment] no later than ${dtg(new Date(Date.now()+36e5))} in order to conduct defensive operations to detect, contain, and eradicate threats on the network.`}]},
+   {h:'Execution',fields:[
+     {k:'intent',label:'My intent',def:'To defend the network and eradicate the threat.'},
+     {k:'me',label:'My main effort',def:'Execution of the Incident Response Plan.'},
+     {k:'end',label:'My end state',def:'Threat eliminated, incident report submitted.'},
+     phaseList('som','My scheme of manoeuvre',['Deploy','Defensive operation','Report']),
+     {type:'marker',label:'Gentlemen, pens down, eyes up'},
+     {type:'custom',c:'tasks',label:'Tasks by team / individual'},
+     {k:'coord',label:'Coordinating instructions',type:'area',def:'No host is wiped or rebooted without IC approval. Volatile evidence collected before containment actions. All findings go to the journal.'},
+     {k:'sched',label:'Schedule',type:'list',add:'Add line',cols:[{f:'when',ph:'When',w:'.6fr'},{f:'what',ph:'What'}],def:()=>[{when:dtg(new Date(Date.now()+18e5)),what:'First SITREP'},{when:'',what:'Back briefs complete'}]}]},
+   {h:'Service support',fields:[
+     {row:[{k:'dress',label:'Dress',def:'FFO'},{k:'food',label:'Food',def:'Not provided'}]},
+     {row:[{k:'tools',label:'Tools / access required',def:'EDR console, SIEM, jump host, forensic workstation'},{k:'escal',label:'Escalation path if blocked',def:'IC, then Executive Sponsor'}]}]},
+   {h:'Command and signal',fields:[
+     {row:[{k:'sqic',label:'Squadron IC',def:()=>F('declare').ic||'[Name]'},{k:'sq2ic',label:'Squadron 2IC',def:'[Name]'}]},
+     {row:[{k:'tmic',label:'Team IC',def:()=>rosterBy('IC')||'[Name]'},{k:'tm2ic',label:'Team 2IC',def:()=>rosterBy('2IC')||'[Name]'}]},
+     {row:[{k:'cadence',label:'Reporting cadence',def:()=>sevKey()==='SEV1'?'SITREP every 30 min':'SITREP every 60 min and on significant change'},
+           {k:'channel',label:'Reporting channel',def:()=>{const w=F('wngo');return w.a?`${w.a} (out of band)`:'Signal group (out of band)'}}]}]}],
+  primary:{label:'Issue orders',run:()=>{pushDoc('orders','ORDERS',stepText(STEP('orders')),true);addLog('command',`ORDERS issued by ${F('orders').issuer}.\nMission: ${F('orders').mission}\nTasks: ${S.tasks.length}`,'Orders');return true;}}},
+
+ {id:'declare',phase:'Declare',command:true,title:'Declare incident',purpose:'Classify, capture the 5W and start the clock at H hour.',
+  sections:[
+   {h:'Identification',fields:[
+     {row:[{k:'id',label:'Incident ID',def:()=>newId(),cmdOnly:true},{k:'ic',label:'Incident Commander',def:()=>S.op.role==='Incident Commander'&&S.op.name?S.op.name:'[Rank, name]'}]},
+     {row:[{k:'reporter',label:'Detection source',def:'SOC analyst on shift'},{k:'detected',label:`Detected (${tzName()})`,def:()=>ldtg()}]}]},
+   {h:'Severity',sub:'Annex A',fields:[{type:'sevcards',k:'sev'}]},
+   {h:'5W',w5:[
+     {k:'who',w:'Who',sub:'Actor, reporter, affected',def:'Unknown actor. Affected: [business unit / users].'},
+     {k:'what',w:'What',sub:'Nature of the event',def:'Suspicious activity on [system]: [malware / unauthorized access / exfiltration / DoS].'},
+     {k:'where',w:'Where',sub:'Systems, networks, sites',def:'[Hostnames, IP ranges, site, cloud tenant]'},
+     {k:'when',w:'When',sub:'Detection and first activity',def:()=>'Detected '+ldtg()+'. Earliest known activity: unknown.'},
+     {k:'why',w:'Why',sub:'Impact on the mission',def:'[Impact on operations, data, services]'}]},
+   {h:'Section',sub:'Who is on the team',fields:[{type:'custom',c:'roster'}]}],
+  primary:{label:'Declare incident',run:()=>{
+     const f=F('declare');
+     if(!S.hHour){S.hHour=new Date();S.phase='Identification';}
+     S.op.inc=f.id;
+     addLog('command',`INCIDENT DECLARED ${f.id}, ${f.sev}. IC: ${f.ic}.\nWHAT: ${f.what}\nWHERE: ${f.where}\nESCALATION: ${SEVS[f.sev].esc}`,'Declare');
+     return true;}}},
+
+ {id:'ops',phase:'Execute',title:'Operations',purpose:'Phase, severity and task status. Every change goes to the log.',
+  sections:[{h:'Current phase',fields:[{type:'custom',c:'phase'}]},{h:'Severity',sub:'Reclassify if scope changes',fields:[{type:'custom',c:'reclass'}]},{h:'Task board',fields:[{type:'custom',c:'board'}]}]},
+
+ {id:'findings',phase:'Execute',title:'Findings journal',purpose:'Register what you find. Each entry is stamped and signed with your operator name.',repeat:()=>S.findings.filter(f=>!f.dupOf).length,
+  sections:[
+   {h:'New finding',fields:[
+     {k:'analyst',label:'Analyst name',def:()=>S.op.name,ph:'Rank, name'},
+     {row:[{k:'found',label:`${tzName()} time of the finding`,def:()=>ldtg(),readonly:true},{k:'event',label:'Zulu time of the event occurrence',def:'',ph:'HHMM DD Mon YY, if known'}]},
+     {row:[{k:'ioa',label:'Indicator of attack',def:'',ph:'e.g. Beaconing every 60 s to external IP'},{k:'type',label:'Incident type',type:'select',options:INC_TYPES,def:'Malware'}]},
+     {row:[{k:'affected',label:'IP/hostname of affected machine(s)',def:'',ph:'e.g. WS-114, 10.10.4.22'},{k:'remote',label:'IP/hostname of remote machine(s)',def:'',ph:'e.g. 203.0.113.7, update-check[.]net'}]},
+     {row:[{k:'exe',label:'Malicious executable(s)',def:'',ph:'File name or hash'},{k:'users',label:'Compromised user(s)',def:'',ph:'e.g. jsmith, svc_backup'}]},
+     {k:'impact',label:'Impact',type:'area',def:'',ph:'What it affects and how badly'},
+     {k:'assist',label:'Assistance required',def:'Nil'},
+     {k:'notes',label:'Additional notes',type:'area',def:'',ph:'Anything else the IC should know'},
+     {type:'custom',c:'attackpick'},
+     {type:'custom',c:'artform'}]},
+   {h:'Journal',fields:[{type:'custom',c:'findlist'}]}],
+  primary:{label:'Record finding',run:()=>{
+     const f=F('findings');if(!f.analyst||!f.analyst.trim()){toast('Enter the analyst name');document.getElementById('f_findings_analyst')?.focus();return false;}
+     if(!(f.ioa||'').trim()&&!(f.affected||'').trim()&&!(f.remote||'').trim()){toast('Add at least an indicator or a host');return false;}
+     const rec={id:nid('f'),ts:new Date(),by:f.analyst.trim(),call:S.op.call||'',...f};delete rec._;
+     rec.artifacts=(f.arts||[]).map(a=>({...a,by:a.by||rec.by}));delete rec.arts;
+     rec.found=ldtg(rec.ts);rec.eventTs=parseDTG(rec.event)||rec.ts;
+     S.findings.push(rec);
+     rec.artifacts.forEach(a=>addLog('neutral',`CUSTODY: ${a.mode==='file'?'artifact attached':'artifact referenced'}, ${a.name}${a.size?' ('+fmtSize(a.size)+')':''}\nSHA-256: ${a.sha||'not recorded'}${a.loc?'\nStored at: '+a.loc:''}`,'Findings'));
+     addLog('hostile',`FINDING (${rec.type}): ${rec.ioa||'no IoA'}${(rec.attack||[]).length?' ['+rec.attack.join(', ')+']':''}\nAffected: ${rec.affected||'unknown'}  Remote: ${rec.remote||'unknown'}${rec.assist&&rec.assist!=='Nil'?'\nAssistance: '+rec.assist:''}`,'Findings');
+     S.forms.findings={};return 'stay';}}},
+
+ {id:'hosts',phase:'Execute',title:'Host board',purpose:'Every machine named in the findings journal, with its current status. Change the status as the response progresses.',
+  sections:[{fields:[{type:'custom',c:'hostboard'}]}]},
+
+ {id:'rfi',phase:'Execute',title:'Request for information',purpose:'Ask for information you need to continue. Repeat as required.',repeat:()=>S.rfis.length,
+  header:()=>[`RFI ${S.rfis.length+1}: ${incId()}`],
+  sections:[{fields:[
+     {k:'to',label:'Addressed to',type:'select',options:['IC','WC'],def:()=>canCommand()&&SYNC.joined?'WC':'IC'},
+     {row:[{k:'unit',label:'Unit',def:()=>S.op.call?`Callsign ${S.op.call}${S.op.name?', '+S.op.name:''}`:'[Unit / callsign]'},{k:'time',label:`Time of request (${tzName()})`,def:()=>ldtg()}]},
+     {k:'loc',label:'Location / Network / Host',def:'[Site, network segment, hostname]'},
+     {k:'details',label:'Request details',type:'area',def:'[What information is needed]'},
+     {row:[{k:'reason',label:'Reason of request',type:'select',options:['Urgent','Time Sensitive','Non-Time Sensitive'],def:'Time Sensitive'},{k:'by',label:`Time to receive info by (${tzName()})`,def:()=>inLocal(36e5)}]}]}],
+  history:()=>S.rfis.map((r,i)=>{const ans=rfiAnswers(r.id);return {t:`RFI ${i+1}${isWC(r.to)?' to WC':''}, ${r.time}, ${r.reason}${r.author?', '+r.author:''}${ans.length?' · answered':''}`,body:r.text+ans.map(x=>`\n\nANSWER FROM WC, ${ldtg(new Date(x.ts))}:\n${x.text}`).join('')}}),
+  primary:{label:'Submit RFI',run:()=>{
+     const n=S.rfis.length+1,f=F('rfi'),text=stepText(STEP('rfi'));
+     S.rfis.push({...f,id:nid('i'),ts:new Date(),author:me(),text});
+     addLog(f.reason==='Urgent'?'unknown':'neutral',`RFI ${n} to ${f.to||'IC'} (${f.reason}) from ${f.unit}: ${f.details}\nNeeded by ${f.by}.`,'RFI');
+     S.forms.rfi={};return 'stay';}}},
+
+ {id:'rfc',phase:'Execute',title:'Request for change',purpose:'Request for change template. Submit before any change to production.',repeat:()=>S.rfcs.length,
+  header:()=>[`REQUEST FOR CHANGE ${S.rfcs.length+1}: ${incId()}  ${ldtg()}`,`Requested by: ${me()||F('declare').ic||''}`],
+  sections:[
+   {h:'Change',fields:[
+     {k:'to',label:'Addressed to',type:'select',options:['IC','WC'],def:()=>canCommand()&&SYNC.joined?'WC':'IC'},
+     {k:'title',label:'Title',def:'[Short title of the change]'},
+     {k:'asset',label:'Targeted asset',def:'[Host / system / service]'},
+     {k:'just',label:'Justification',type:'area',def:'[Why the change is needed, link to finding]'},
+     {k:'down',label:'Requires down time (T/F)',type:'select',options:['False','True'],def:'False'}]},
+   {h:'Schedule',fields:[
+     {k:'imm',label:'Immediately',type:'check'},
+     {row:[{k:'start',label:`Planned start date/time (${tzName()})`,def:()=>inLocal(36e5),disabledIf:()=>F('rfc').imm},{k:'end',label:`Planned end date/time (${tzName()})`,def:()=>inLocal(72e5)}]}]},
+   {h:'Plans',fields:[
+     {k:'impl',label:'Implementation plan',type:'area',def:'[Step by step]'},
+     {k:'backout',label:'Backout plan',type:'area',def:'[How to revert if it fails]'},
+     {k:'risk',label:'Risk and impact analysis',type:'area',def:'[Risk to operations, users, evidence]'},
+     {k:'test',label:'Test plan',type:'area',def:'[How success is verified]'}]}],
+  history:()=>S.rfcs.map((r,i)=>{const ans=respFor(r.id),last=ans[ans.length-1];return {t:`RFC ${i+1}${isWC(r.to)?' to WC':''}, ${r.title}${r.author?', '+r.author:''}${last&&last.decision?' · '+last.decision:''}`,body:r.text+ans.map(x=>`\n\nWC ${x.decision?x.decision.toUpperCase():'COMMENT'}, ${ldtg(new Date(x.ts))}${x.text?':\n'+x.text:''}`).join('')}}),
+  primary:{label:'Submit RFC',run:()=>{
+     const n=S.rfcs.length+1,f=F('rfc'),text=stepText(STEP('rfc'));
+     S.rfcs.push({...f,id:nid('c'),ts:new Date(),author:me(),text});
+     addLog('friendly',`RFC ${n} to ${f.to||'IC'} submitted: ${f.title}. Asset: ${f.asset}. Down time: ${f.down}. Start: ${f.imm?'Immediately':f.start}.`,'RFC');
+     S.forms.rfc={};return 'stay';}}},
+
+ {id:'sitrep',phase:'Execute',title:'SITREP',purpose:'Annex D standard SITREP. Repeat on every reporting cycle.',repeat:()=>S.sitreps.length,
+  header:()=>[`SITREP ${S.sitreps.length+1}: ${incId()}  ${stamp(new Date())}`,`Precedence: ${F('sitrep').prec||''}   To: ${F('sitrep').to||''}   ${sevKey()}`],
+  sections:[
+   {h:'Header',fields:[{row:[{k:'prec',label:'Precedence',type:'select',options:['FLASH','IMMEDIATE','PRIORITY','ROUTINE'],def:()=>sevKey()==='SEV1'?'IMMEDIATE':'PRIORITY'},{k:'to',label:'To',def:'Squadron IC / 1UP'}]}]},
+   {h:'Report',fields:[
+     {k:'hostsum',label:'Hosts',def:()=>{const hs=hostBoard();return hs.length?HSTAT.map(s=>`${hs.filter(h=>h.status===s).length} ${s.toLowerCase()}`).join(', '):'No host affected yet'}},
+     {k:'status',label:'Status',type:'select',options:['Active','Contained','Eradicating','Recovering','Closed'],def:()=>({Containment:'Contained',Eradication:'Eradicating',Recovery:'Recovering','Lessons learned':'Closed'})[S.phase]||'Active'},
+     {k:'since',label:'Since last SITREP',type:'area',def:()=>{const last=S.sitreps.length?S.sitreps[S.sitreps.length-1].ts:S.hHour;const f=S.findings.filter(x=>!x.dupOf&&(!last||x.ts>last));const d=phaseTasks().map(x=>x.t).filter(t=>t.status==='Done').map(t=>`Done: ${t.who||'Section'}, ${t.task}`);return [...f.map(x=>`Finding: ${x.ioa||x.type} on ${x.affected||'unknown host'}`),...d].join('\n')||'No change.'}},
+     {k:'now',label:'Current actions',type:'area',def:()=>phaseTasks().map(x=>x.t).filter(t=>t.status==='In progress').map(t=>`${t.who||'Section'}: ${t.task}`).join('\n')||'[Current actions]'},
+     {k:'block',label:'Blockers',type:'area',def:()=>phaseTasks().map(x=>x.t).filter(t=>t.status==='Blocked').map(t=>`${t.who||'Section'}: ${t.task}`).join('\n')||'Nil'},
+     {k:'next',label:`Next SITREP due (${tzName()})`,def:()=>inLocal(sevKey()==='SEV1'?18e5:36e5)+' or on significant change'}]}],
+  history:()=>S.sitreps.map((r,i)=>({t:`SITREP ${i+1}, ${stamp(r.ts)}, ${r.prec}`,body:r.text})),
+  primary:{label:'Issue SITREP',run:()=>{
+     const n=S.sitreps.length+1,f=F('sitrep'),text=stepText(STEP('sitrep'));
+     S.sitreps.push({...f,id:nid('s'),origin:S.sid,ts:new Date(),text});
+     addLog('command',`SITREP ${n} issued (${f.prec}) to ${f.to}. Status: ${f.status}.`,'SITREP');
+     S.forms.sitrep={};return 'stay';}}},
+
+ {id:'frago',phase:'Execute',command:true,title:'FRAGO',purpose:'Change the plan. State only what changes.',repeat:()=>S.fragos.length,
+  header:()=>[`FRAGO ${S.fragos.length+1}: ${incId()}  ${stamp(new Date())}`],
+  sections:[{fields:[
+     {k:'why',label:'Reason for change',type:'area',def:'[New information / changed situation]'},
+     {k:'sit',label:'Changes to situation',type:'area',def:'[Changes]'},
+     {k:'mission',label:'Changes to mission',def:'No change.'},
+     {k:'tasks',label:'Changes to tasks',type:'area',def:'[Who now does what]'},
+     {k:'coord',label:'Changes to coordinating instructions',def:'No change.'},
+     {k:'rest',label:'Unchanged',def:'All other instructions remain in effect.'}]}],
+  history:()=>S.fragos.map((r,i)=>({t:`FRAGO ${i+1}, ${stamp(r.ts)}`,body:r.text})),
+  primary:{label:'Issue FRAGO',run:()=>{
+     const n=S.fragos.length+1,f=F('frago'),text=stepText(STEP('frago'));
+     S.fragos.push({...f,id:nid('g'),origin:S.sid,ts:new Date(),text});pushDoc('frago',`FRAGO ${n}`,text,false);
+     addLog('command',`FRAGO ${n} issued. Reason: ${f.why}`,'FRAGO');
+     S.forms.frago={};return 'stay';}}},
+
+ {id:'merge',phase:'Execute',title:'Consolidate logs',purpose:'Import logs sent by the section, merge them into one timeline and resolve duplicates.',repeat:()=>Object.keys(S.received).length,
+  sections:[{h:'Import',fields:[{type:'custom',c:'importer'}]},{h:'Section reporting',fields:[{type:'custom',c:'received'}]},{h:'Possible duplicates',fields:[{type:'custom',c:'dupes'}]},{h:'Indicators of compromise',sub:'Merged and deduplicated',fields:[{type:'custom',c:'iocs'}]}]},
+
+ {id:'stand',phase:'Close',command:true,title:'Stand down',purpose:'Confirm the end state and hand over.',
+  sections:[{fields:[
+     {k:'end',label:'End state achieved',type:'select',options:['Yes','Partially','No'],def:'Yes',cmdOnly:true},
+     {k:'restored',label:'Systems restored',type:'area',def:'[Systems restored and monitored]',cmdOnly:true},
+     {k:'evidence',label:'Evidence and chain of custody',type:'area',def:'Evidence logged, hashed and handed to [name] (Annex F).',cmdOnly:true},
+     {k:'risk',label:'Residual risk',type:'area',def:'[Residual risk and heightened monitoring in place]',cmdOnly:true},
+     {k:'handover',label:'Handed over to',def:'[Team / owner]',cmdOnly:true}]}],
+  header:()=>[`STAND DOWN: ${incId()}  ${ldtg()}`,`${sevKey()}   Ordered by: ${me()||F('declare').ic||'IC'}`],
+  history:()=>docHistory('stand'),
+  primary:{label:'Stand down',cls:'danger',run:()=>{
+     if(!S.hHour){toast('Declare the incident first');return false;}
+     if(!confirm('Stand down the incident? The H clock stops and the section is notified.'))return false;
+     S.endHour=new Date();S.phase='Lessons learned';
+     pushDoc('stand','STAND DOWN',stepText(STEP('stand')),true);
+     addLog('command',`STAND DOWN. End state: ${F('stand').end}. Handed over to ${F('stand').handover}.`,'Stand down');return true;}}},
+
+ {id:'aar',phase:'Close',title:'After action review',purpose:'Annex G: what was supposed to happen, what happened, why, sustain, improve.',
+  header:()=>[`AFTER ACTION REVIEW: ${incId()}`],
+  sections:[
+   {fields:[{row:[{k:'date',label:`Date of AAR (${tzName()})`,def:()=>ldtg(),cmdOnly:true},{k:'fac',label:'Facilitator',def:()=>F('declare').ic||'[Name]',cmdOnly:true}]},{k:'part',label:'Participants',def:()=>rosterNames().join(', ')||'[List]',cmdOnly:true}]},
+   {fields:[
+     {k:'plan',label:'1. What was supposed to happen',type:'area',def:()=>F('orders').mission||'[Plan as written]',cmdOnly:true},
+     {k:'happened',label:'2. What actually happened',type:'area',def:'[Factual timeline, no blame language]',cmdOnly:true},
+     {k:'why',label:'3. Why the difference',type:'area',def:'[Root cause: process / tooling / people / plan itself]',cmdOnly:true},
+     {k:'sustain',label:'4. Sustain',type:'area',def:'[What worked, do not change]'},
+     {k:'improve',label:'5. Improve',type:'area',def:'',ph:'One item per line: what to change, and who should own it'}]}],
+  history:()=>S.aars.map(r=>({t:`${r.kind==='full'?'AAR recorded':'Sustain / improve proposal'}, ${ldtg(new Date(r.ts))}, ${r.by||'Unknown'}${r.call?' ('+r.call+')':''}`,body:r.text})),
+  primary:{label:()=>canCommand()?'Record AAR':'Submit sustain / improve',run:()=>{
+     const f=F('aar'),cmd=canCommand();
+     if(cmd){S.aars.push({id:nid('a'),kind:'full',by:me()||F('declare').ic||'IC',call:S.op.call||'',ts:new Date(),text:stepText(STEP('aar'))});addLog('command','AAR recorded.','AAR');return 'stay';}
+     const imp=String(f.improve||'').trim();
+     if(!(f.sustain||'').trim()&&!imp){toast('Write a sustain or an improve point');return false;}
+     const text=[`SUSTAIN / IMPROVE PROPOSAL: ${incId()}`,`From: ${me()||'member'}${S.op.call?' ('+S.op.call+')':''}   ${ldtg()}`,'','4. SUSTAIN',`  ${f.sustain||''}`,'','5. IMPROVE',...imp.split('\n').filter(x=>x.trim()).map(x=>`  - ${x.trim()}`)].join('\n');
+     S.aars.push({id:nid('a'),kind:'proposal',by:me()||'member',call:S.op.call||'',ts:new Date(),sustain:f.sustain||'',improve:imp,text});
+     addLog('neutral',`AAR proposal submitted by ${me()||'member'}.`,'AAR');
+     delete f.sustain;delete f.improve;return 'stay';}}}
+];
+const STEP=id=>STEPS.find(s=>s.id===id);
+let cur='wngo';
+
+/* ============ Field rendering ============ */
+function val(s,fd){const f=F(s);if(f[fd.k]===undefined)f[fd.k]=typeof fd.def==='function'?fd.def():(Array.isArray(fd.def)?JSON.parse(JSON.stringify(fd.def)):(fd.def??''));return f[fd.k];}
+function fieldHTML(s,fd){
+  if(fd.row) return `<div class="row2">${fd.row.map(x=>fieldHTML(s,x)).join('')}</div>`;
+  if(fd.type==='custom') return (fd.label?`<span class="lbl">${esc(fd.label)}</span>`:'')+CUSTOM[fd.c]();
+  if(fd.type==='marker') return `<div class="marker">${esc(fd.label)}</div>`;
+  if(fd.type==='sevcards') return CUSTOM.sevcards();
+  if(fd.type==='list') return listHTML(s,fd);
+  if(fd.type==='check'){const v=!!F(s)[fd.k];return `<div class="fld"><label class="chk"><input type="checkbox" data-s="${s}" data-k="${fd.k}" data-check="1"${v?' checked':''}> ${esc(fd.label)}</label></div>`;}
+  const v=val(s,fd),id=`f_${s}_${fd.k}`,lock=fd.cmdOnly&&!canCommand(),a=`data-s="${s}" data-k="${fd.k}" id="${id}"${lock?' disabled':''}`,ph=fd.ph?` placeholder="${esc(fd.ph)}"`:'';
+  let inp;
+  if(fd.type==='select'){const o=typeof fd.options==='function'?fd.options():fd.options;inp=`<select ${a}>${o.map(x=>`<option value="${esc(x)}"${x===v?' selected':''}>${esc(x||'Select')}</option>`).join('')}</select>`;}
+  else if(fd.type==='area') inp=`<textarea ${a}${fd.k==='improve'||fd.k==='sustain'?' class="grow"':''} rows="${Math.min(6,Math.max(2,String(v).split('\n').length+1))}"${ph}>${esc(v)}</textarea>`;
+  else inp=`<input ${a} value="${esc(v)}"${ph}${fd.disabledIf&&fd.disabledIf()?' disabled':''}${fd.readonly?' readonly class="ro"':''}>`;
+  return `<div class="fld"><label for="${id}">${esc(fd.label)}</label>${inp}</div>`;
+}
+function listHTML(s,fd){
+  const arr=val(s,fd),cols=(fd.prefix?'70px ':'')+fd.cols.map(c=>c.w||'1fr').join(' ')+' 28px',lock=fd.cmdOnly&&!canCommand(),dis=lock?' disabled':'';
+  return `<div class="fld"><span class="lbl">${esc(fd.label)}</span><div class="grid-rows">${arr.map((r,i)=>`<div class="gr" style="grid-template-columns:${cols}">${fd.prefix?`<span class="pfx">${fd.prefix} ${i+1}</span>`:''}${fd.cols.map(c=>`<input aria-label="${esc(c.ph)}" data-ls="${s}" data-lk="${fd.k}" data-li="${i}" data-lf="${c.f}" value="${esc(r[c.f])}" placeholder="${esc(c.ph)}"${dis}>`).join('')}${lock?'<span></span>':`<button class="x" data-ldel="${s}|${fd.k}|${i}" aria-label="Remove">×</button>`}</div>`).join('')}</div>
+  ${lock?'':`<button class="add" data-ladd="${s}|${fd.k}">${esc(fd.add||'Add line')}</button>`}</div>`;
+}
+const allFields=list=>list.flatMap(fd=>fd.row?fd.row:[fd]);
+
+/* ============ Custom blocks ============ */
+const CUSTOM={
+ sevcards(){
+  const cur=sevKey();F('declare').sev=cur;const d=SEVS[cur];
+  return `<div class="sevgrid" role="radiogroup" aria-label="Severity">${Object.entries(SEVS).map(([k,v])=>`<button class="sevcard${k===cur?' on':''}" data-s="${v.n}" data-sev="${k}" role="radio" aria-checked="${k===cur}"><b>${k}</b><span>${v.criteria}</span></button>`).join('')}</div>
+`;
+ },
+ reclass(){
+  if(!S.hHour) return '<p class="muted">Declare the incident first.</p>';
+  const dis=canCommand()?'':' disabled';
+  return `<div class="sevrow">${Object.entries(SEVS).map(([k,v])=>`<button data-s="${v.n}" data-resev="${k}" class="${k===sevKey()?'on':''}"${dis}>${k}</button>`).join('')}</div>${dis?'<p class="muted" style="margin:-6px 0 8px">Only the IC or 2IC can reclassify.</p>':''}<p class="muted" style="margin-top:-6px">${SEVS[sevKey()].esc}</p>`;
+ },
+ roster(){
+  if(!S.roster.length) S.roster=[{name:S.op.role==='Incident Commander'?S.op.name:'',role:'IC',call:'0',task:'Command and reporting'},{name:'',role:'2IC',call:'0A',task:'Log and coordination'},{name:'',role:'Analyst',call:'11',task:'Scope affected hosts'},{name:'',role:'Analyst',call:'12',task:'Collect volatile evidence'}];
+  const g='grid-template-columns:1.4fr 1fr .6fr 28px';
+  return `<div class="grid-rows"><div class="gr head" style="${g}"><span>Name</span><span>Role</span><span>Callsign</span><span></span></div>
+  ${S.roster.map((r,i)=>`<div class="gr box" style="${g}">
+   <input aria-label="Name" data-r="${i}" data-f="name" value="${esc(r.name)}" placeholder="Name">
+   <input aria-label="Role" data-r="${i}" data-f="role" value="${esc(r.role)}">
+   <input aria-label="Callsign" data-r="${i}" data-f="call" value="${esc(r.call)}">
+   <button class="x" data-del-r="${i}" aria-label="Remove">×</button></div>`).join('')}</div>
+   <button class="add" data-add="roster">Add member</button>`;
+ },
+ tasks(){
+  if(!S.tasks.length && S.roster.length) S.tasks=S.roster.filter(r=>r.task).map(r=>({who:r.name||r.role,task:r.task,due:'',status:'Assigned',phase:curPhase()}));
+  return taskRows(false);
+ },
+ bbstatus(){
+  const names=[...new Set([...rosterNames(),...S.roster.filter(r=>!r.name.trim()).map(r=>r.role)])];
+  const done=S.backbriefs.map(b=>b.who);
+  if(!names.length) return '<p class="muted">Add the section in the warning order to track who has back briefed.</p>';
+  return `<span class="lbl">Section status</span><div class="chips">${names.map(n=>`<span class="chip${done.includes(n)?' ok':''}">${esc(n)}${done.includes(n)?', confirmed':', pending'}</span>`).join('')}</div>`+
+   (S.backbriefs.length?`<div class="hist">${S.backbriefs.map(b=>`<details><summary>${esc(b.who)}, ${stamp(b.ts)}</summary><pre>${esc(b.text)}</pre></details>`).join('')}</div>`:'');
+ },
+ phase(){return `<div class="picerl">${PHASES.map(p=>`<button data-phase="${p}" class="${S.phase===p?'on':''}"${canCommand()?'':' disabled'}>${p.replace('Lessons learned','Lessons')}</button>`).join('')}</div>`;},
+ board(){return taskRows(true);},
+ artform(){
+  const arts=F('findings').arts||(F('findings').arts=[]);const r=F('ref');
+  return `<div class="fld"><span class="lbl">Artifacts</span>
+   ${arts.length?`<div class="arts">${arts.map((a,i)=>artRow(a,`<button class="x" data-artdel="${i}" aria-label="Remove">×</button>`)+(a.mode==='ref'?`<input class="artloc" data-artloc="${i}" value="${esc(a.loc)}" placeholder="Storage location of the original (required for chain of custody)" aria-label="Storage location">`:'')).join('')}</div>`:''}
+   <div class="art-btns">
+    <span class="btn sm filebtn">Attach file<input type="file" id="artFile" multiple></span>
+    <span class="btn sm filebtn">Take photo<input type="file" id="artCam" accept="image/*" capture="environment"></span>
+    <button class="btn sm" id="refToggle">${r._open?'Hide reference':'Reference only'}</button>
+   </div>
+   <p class="muted" style="margin:6px 0 0">Files up to ${MAX_MB} MB are attached and hashed. Executables, memory dumps, disk images and PCAPs: record a reference with the hash and storage location instead.</p>
+   ${r._open?`<div class="refbox">
+     <div class="row2">${fieldHTML('ref',{k:'name',label:'Artifact',def:'',ph:'e.g. WS-114 memory image'})}${fieldHTML('ref',{k:'sha',label:'SHA-256',def:'',ph:'64 hex characters'})}</div>
+     <div class="row2">${fieldHTML('ref',{k:'loc',label:'Storage location',def:'',ph:'e.g. \\\\evidence\\INC\\WS-114.raw'})}${fieldHTML('ref',{k:'size',label:'Size',def:'',ph:'e.g. 16 GB'})}</div>
+     <button class="btn sm primary" id="addRef">Add reference</button></div>`:''}
+  </div>`;
+ },
+ hostboard(){
+  const hs=hostBoard(),cnt=s=>hs.filter(h=>h.status===s).length;
+  let h=`<div class="hsum">${HSTAT.map(s=>`<div class="hs-${s.toLowerCase()}"><b>${cnt(s)}</b><span>${s}</span></div>`).join('')}</div>`;
+  if(!hs.length)h+='<p class="muted">No host yet. Hosts appear here when a finding names an affected machine.</p>';
+  else h+=`<div class="tw"><table class="tbl hosts"><tr><th>Host</th><th>Status</th><th>First seen</th><th>Findings</th><th>Last change</th></tr>${hs.map(x=>`<tr>
+     <td><code>${esc(x.host)}</code></td>
+     <td><select class="hstat hs-${x.status.toLowerCase()}" data-hostset="${esc(x.host)}" aria-label="Status of ${esc(x.host)}">${HSTAT.map(s=>`<option${s===x.status?' selected':''}>${s}</option>`).join('')}</select></td>
+     <td>${esc(ldtg(new Date(x.first)))}</td>
+     <td>${x.findings.length}<small class="muted" style="display:block">${esc([...new Set(x.findings.map(f=>f.by))].join(', '))}</small></td>
+     <td>${x.last?`${esc(x.last.status)} by ${esc(x.last.by||'')}<small class="muted" style="display:block">${esc(ldtg(new Date(x.last.ts)))}</small>`:'<span class="muted">From findings</span>'}</td></tr>`).join('')}</table></div>`;
+  h+=`<div class="row2" style="margin-top:12px"><div class="fld"><label for="hostAdd">Add a host not yet in a finding</label><input id="hostAdd" placeholder="e.g. FS-02 or 10.10.4.30"></div><div class="fld" style="align-self:end"><button class="btn" id="hostAddBtn">Add host</button></div></div>`;
+  return h;
+ },
+ attackpick(){
+  const sel=F('findings').attack||(F('findings').attack=[]);
+  return `<div class="fld"><label for="attackSel">MITRE ATT&CK technique(s)</label>
+   <select id="attackSel"><option value="">Select a technique to link</option>${ATTACK.map(([tac,list])=>`<optgroup label="${esc(tac)}">${list.filter(([i])=>!sel.includes(i)).map(([i,n])=>`<option value="${i}">${i} ${esc(n)}</option>`).join('')}</optgroup>`).join('')}</select>
+   ${sel.length?`<div class="chips" style="margin:8px 0 0">${sel.map(i=>`<span class="chip tech">${esc(attackLabel(i))}<button class="x" data-untech="${i}" aria-label="Remove">×</button></span>`).join('')}</div>`:''}</div>`;
+ },
+ findlist(){
+  const list=S.findings.slice().reverse();
+  if(!list.length) return '<p class="muted">No findings yet. Record the first one above.</p>';
+  return list.map(findCard).join('');
+ },
+ importer(){
+  const li=S.lastImport;
+  return `<p class="muted" style="margin-top:0">Select the log files the section sent you. You can add more later; entries already imported are skipped.</p>
+  <span class="btn primary filebtn">Import logs<input type="file" id="importFiles" accept=".json,application/json" multiple></span>
+  ${li?`<div class="summary" style="margin-top:14px">
+    <div><b>${li.files}</b><span>files read</span></div>
+    <div><b>${li.newEntries+li.newFindings}</b><span>new entries</span></div>
+    <div><b>${li.exact}</b><span>exact duplicates skipped</span></div>
+    ${li.sameArt?`<div><b>${li.sameArt}</b><span>identical artifacts stored once</span></div>`:''}
+    <div><b>${iocTable().length}</b><span>unique IOCs</span></div>
+    <div><b>${dupPairs().length}</b><span>to review</span></div></div>
+    ${li.errors.length?`<p style="color:var(--hostile);font-size:14px">${li.errors.map(esc).join('<br>')}</p>`:''}`:'<div style="height:14px"></div>'}`;
+ },
+ received(){
+  const r=Object.values(S.received);
+  if(!r.length) return '<p class="muted">No logs received yet.</p>';
+  return `<div class="tw"><table class="tbl"><tr><th>Analyst</th><th>Callsign</th><th>Log sent</th><th>Received</th><th>Entries</th><th>Findings</th></tr>${r.map(x=>`<tr><td>${esc(x.by)}</td><td>${esc(x.call)}</td><td><code>${dtg(new Date(x.exported))}</code></td><td><code>${dtg(x.received)}</code></td><td>${x.entries}</td><td>${x.findings}</td></tr>`).join('')}</table></div>`;
+ },
+ dupes(){
+  const p=dupPairs();
+  if(!p.length) return '<p class="muted">Nothing to review. Exact duplicates are removed automatically; similar entries from different analysts appear here.</p>';
+  return p.map(x=>`<div class="dup"><div class="why">${esc(x.why)}</div><div class="pair">
+   <div><small>${esc(x.a.by||'Unknown')}, ${dtg(itemTime(x.a))}</small>${esc(itemText(x.a))}</div>
+   <div><small>${esc(x.b.by||'Unknown')}, ${dtg(itemTime(x.b))}</small>${esc(itemText(x.b))}</div></div>
+   <button class="btn sm primary" data-merge="${x.key}">Merge (keep earlier)</button> <button class="btn sm" data-keep="${x.key}">Keep both</button></div>`).join('');
+ },
+ iocs(){
+  const t=iocTable();
+  if(!t.length) return '<p class="muted">IOCs are extracted from findings and log entries as they arrive.</p>';
+  return `<div class="tw"><table class="tbl"><tr><th>Type</th><th>Value</th><th>Reported by</th><th>First seen</th><th>Count</th></tr>${t.map(x=>`<tr><td>${x.type}</td><td><code>${esc(defang(x.value,x.type))}</code></td><td>${esc([...x.by].join(', '))}</td><td><code>${dtg(x.first)}</code></td><td>${x.count}</td></tr>`).join('')}</table></div>
+  <button class="btn sm" id="iocCsv">Export CSV</button> <button class="btn sm" id="iocCopy">Copy defanged list</button><div style="height:14px"></div>`;
+ }
+};
+function taskRows(withStatus){
+  if(ensureMemberTasks())scheduleSync();
+  const cmd=canCommand(),list=phaseTasks(),ph=curPhase();
+  const names=[...new Set([...rosterNames(),...S.roster.map(r=>r.role)])];
+  const g=withStatus?'grid-template-columns:1fr 2fr .8fr 140px':'grid-template-columns:1fr 2fr .8fr 28px';
+  let h=`<p class="muted" style="margin:-4px 0 10px">Tasks for the current phase: <b>${esc(ph)}</b>. Change the phase on the Operations step to assign the next phase.</p>`;
+  if(!list.length){
+    const prev=[...PHASES].reverse().find(p=>p!==ph&&S.tasks.some(t=>(t.phase||'Identification')===p));
+    h+=`<p class="muted">No tasks for ${esc(ph)} yet.</p>`;
+    if(cmd&&prev)h+=`<button class="add" data-carry="${esc(prev)}">Carry over tasks from ${esc(prev)}</button> `;
+    if(cmd)h+=`<button class="add" data-add="task">Add task</button>`;
+    return h;
+  }
+  const dis=cmd?'':' disabled';
+  h+=`<div class="grid-rows"><div class="gr head" style="${g}"><span>Team / individual</span><span>Task</span><span>Deadline</span><span>${withStatus?'Status':''}</span></div>
+  ${list.map(({t,i})=>`<div class="gr box" style="${g}">
+   ${cmd&&!withStatus?`<select aria-label="Team or individual" data-t="${i}" data-f="who">${['',...new Set([...names,t.who].filter(x=>x!==undefined))].map(n=>`<option value="${esc(n)}"${n===t.who?' selected':''}>${esc(n||'Select')}</option>`).join('')}</select>`:`<input aria-label="Who" data-t="${i}" data-f="who" value="${esc(t.who)}" placeholder="Who"${dis}>`}
+   <div class="tcell"><textarea class="tarea" rows="1" aria-label="Task" data-t="${i}" data-f="task" placeholder="Task"${dis}>${esc(t.task)}</textarea>${t.ackBy?`<small class="tack">Acknowledged ${esc(ldtg(new Date(t.ackAt)))}</small>`:''}</div>
+   <input aria-label="Deadline" data-t="${i}" data-f="due" value="${esc(t.due)}" placeholder="Deadline"${dis}>
+   ${withStatus?`<select class="status" data-v="${t.status}" data-status="${i}" aria-label="Status">${['Assigned','In progress','Blocked','Done'].map(s=>`<option${s===t.status?' selected':''}>${s}</option>`).join('')}</select>`:(cmd?`<button class="x" data-del-t="${i}" aria-label="Remove">×</button>`:'<span></span>')}</div>`).join('')}</div>
+   ${cmd?'<button class="add" data-add="task">Add task</button>':''}`;
+  return h;
+}
+const HSTAT=['Compromised','Isolated','Cleaned','Restored'];
+function hostTokensOf(text){
+  return refang(text).split(/[,;\s]+/).map(t=>t.replace(/^[(\[{<"']+|[)\]}>"'.:]+$/g,'').trim()).filter(t=>{
+    const l=t.toLowerCase();if(!l||l.length<2||STOP.has(l))return false;
+    return /^(\d{1,3}\.){3}\d{1,3}$/.test(t)||/^[a-z0-9][\w.-]*$/i.test(t);}).map(t=>/^(\d{1,3}\.){3}\d{1,3}$/.test(t)?t:t.toLowerCase());
+}
+function hostBoard(){
+  const m=new Map();
+  const get=h=>{if(!m.has(h))m.set(h,{host:h,findings:[],first:null,status:'Compromised',last:null});return m.get(h);};
+  S.findings.forEach(f=>hostTokensOf(f.affected).forEach(h=>{const r=get(h);r.findings.push(f);const t=new Date(f.eventTs||f.ts);if(!r.first||t<r.first)r.first=t;}));
+  S.hoststat.slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts)).forEach(e=>{const r=get(e.host);if(!r.first)r.first=new Date(e.ts);r.status=e.status;r.last=e;});
+  const order=s=>HSTAT.indexOf(s);
+  return [...m.values()].sort((a,b)=>order(a.status)-order(b.status)||a.first-b.first);
+}
+function setHost(host,status,note){
+  S.hoststat.push({id:nid('h'),host,status,by:me()||'operator',call:S.op.call||'',ts:new Date(),note:note||''});
+  addLog(status==='Compromised'?'hostile':'friendly',`HOST ${host}: ${status}${note?' ('+note+')':''}`,'Host board');
+  scheduleSync(0);render();
+}
+function findCard(x){
+  const rows=[['Zulu time of event',x.event],['Indicator of attack',x.ioa],['MITRE ATT&CK',(x.attack||[]).map(attackLabel).join('\n')],['Incident type',x.type],['Affected machine(s)',x.affected],['Remote machine(s)',x.remote],['Malicious executable(s)',x.exe],['Compromised user(s)',x.users],['Impact',x.impact],['Assistance required',x.assist],['Additional notes',x.notes]].filter(r=>r[1]&&String(r[1]).trim());
+  const arts=(x.artifacts||[]);
+  return `<details class="fcard${x.dupOf?' hidden-dup':''}"><summary><span class="fs-time">${esc(x.found||ldtg(new Date(x.ts)))}</span><b>${esc(x.by)}${x.call?' ('+esc(x.call)+')':''}</b><span class="fs-type">${esc(x.type||'')}</span><span class="fs-ioa">${esc(x.ioa||x.affected||'')}</span>${(x.attack||[]).map(i=>`<span class="fs-n tech">${esc(i)}</span>`).join('')}${arts.length?`<span class="fs-n">${arts.length} artifact${arts.length>1?'s':''}</span>`:''}${x.dupOf?'<span class="fs-n">merged</span>':''}</summary>
+  <dl>${rows.map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl>
+  ${arts.length?`<div class="arts" style="margin-top:8px">${arts.map(a=>artRow(a,a.mode==='file'&&S.blobs[a.sha]?`<button class="btn sm" data-artdl="${a.sha}" data-name="${esc(a.name)}">Save</button>`:'')).join('')}</div>`:''}</details>`;
+}
+
+/* ============ Artifacts ============ */
+const MAX_MB=10;
+const SAMPLE_EXT=/\.(exe|dll|scr|msi|com|ps1|psm1|bat|cmd|vbs|js|jse|jar|hta|lnk|elf|so|bin|sh|iso|img|vhd|vhdx|dmp|raw|mem|vmem|e01|pcap|pcapng)$/i;
+const fmtSize=n=>typeof n==='string'?n:n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+async function sha256(buf){try{const h=await crypto.subtle.digest('SHA-256',buf);return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('')}catch(e){return ''}}
+function blobUrl(sha){if(!S.blobs[sha])return '';return S.urls[sha]||(S.urls[sha]=URL.createObjectURL(S.blobs[sha]));}
+function artRow(a,btn){
+  const img=a.mode==='file'&&/^image\//.test(a.mime||'')&&S.blobs[a.sha]?`<img src="${blobUrl(a.sha)}" alt="">`:`<span class="ico">${a.mode==='file'?'FILE':'REF'}</span>`;
+  return `<div class="art">${img}<div><b>${esc(a.name)}</b><small>${a.size?fmtSize(a.size)+' · ':''}${a.mode==='file'?'attached':'reference only'}${a.by?' · '+esc(a.by):''} · ${dtg(new Date(a.ts))}</small>
+   <small class="h" title="${esc(a.sha)}">SHA-256 ${a.sha?esc(a.sha):'not recorded'}</small>${a.loc?`<small>Stored at ${esc(a.loc)}</small>`:''}</div>${btn||''}</div>`;
+}
+async function attachFiles(files){
+  const f=F('findings');f.arts=f.arts||[];let refd=0,big=0;
+  for(const file of files){
+    const buf=await file.arrayBuffer();const sha=await sha256(buf);
+    const base={id:nid('a'),name:file.name,size:file.size,mime:file.type,sha,by:me()||f.analyst||'',ts:new Date()};
+    if(SAMPLE_EXT.test(file.name)){f.arts.push({...base,mode:'ref',loc:''});refd++;continue;}
+    if(file.size>MAX_MB*1048576){f.arts.push({...base,mode:'ref',loc:''});big++;continue;}
+    S.blobs[sha]=S.blobs[sha]||new Blob([buf],{type:file.type||'application/octet-stream'});
+    f.arts.push({...base,mode:'file'});
+  }
+  render();
+  if(refd)toast(`${refd} executable or image file kept as hash reference only`);
+  else if(big)toast(`Over ${MAX_MB} MB: kept as hash reference only`);
+  else toast('Attached and hashed');
+}
+const b64=blob=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result).split(',')[1]);fr.readAsDataURL(blob);});
+function unb64(str,type){const bin=atob(str),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type});}
+
+/* ============ IOC extraction and duplicates ============ */
+const RE={
+  url:/\bhttps?:\/\/[^\s,;"'<>]+/gi,
+  ip:/\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g,
+  hash:/\b(?:[a-f0-9]{64}|[a-f0-9]{40}|[a-f0-9]{32})\b/gi,
+  file:/\b[\w.-]+\.(?:exe|dll|ps1|psm1|bat|cmd|vbs|js|jse|jar|scr|msi|hta|lnk|sh|elf|bin|docm|xlsm|iso|zip|rar)\b/gi,
+  domain:/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}\b/gi
+};
+const FILE_EXT=/\.(?:exe|dll|ps1|psm1|bat|cmd|vbs|js|jse|jar|scr|msi|hta|lnk|sh|elf|bin|docm|xlsm|iso|zip|rar)$/i;
+const STOP=new Set(['and','or','the','unknown','nil','none','n/a','na','tbd','to','from','on','at','via','of','with','host','hosts','user','users','multiple']);
+const refang=s=>String(s||'').replace(/\[\.\]|\(\.\)|\{\.\}|\[dot\]/gi,'.').replace(/\bhxxp/gi,'http').replace(/\[:\]/g,':').replace(/\[\/\]/g,'/');
+function extract(text,out){
+  const t=refang(text);
+  (t.match(RE.url)||[]).forEach(u=>out.push(['url',u.replace(/^(\w+:\/\/[^/]+)/,m=>m.toLowerCase()).replace(/[.)]+$/,'')]));
+  const noUrl=t.replace(RE.url,' ');
+  (noUrl.match(RE.ip)||[]).forEach(v=>out.push(['ip',v]));
+  (noUrl.match(RE.hash)||[]).forEach(v=>out.push(['hash',v.toLowerCase()]));
+  (noUrl.match(RE.file)||[]).forEach(v=>out.push(['file',v.toLowerCase()]));
+  (noUrl.replace(RE.ip,' ').match(RE.domain)||[]).forEach(v=>{v=v.toLowerCase().replace(/\.$/,'');if(!FILE_EXT.test(v))out.push(['domain',v]);});
+  return out;
+}
+function hostTokens(text,out){
+  refang(text).split(/[,;\s]+/).map(x=>x.trim().replace(/\.$/,'')).filter(Boolean).forEach(tk=>{
+    const l=tk.toLowerCase();if(STOP.has(l)||l.length<2)return;
+    if(new RegExp('^'+RE.ip.source+'$').test(tk)) return; // IPs caught by extract
+    if(/\./.test(tk)) return; // domains caught by extract
+    if(/^[\w-]+$/.test(tk)) out.push(['host',l]);
+  });return out;
+}
+function iocsOf(x){
+  const o=[];
+  if(x.kind==='f'){
+    [x.ioa,x.affected,x.remote,x.exe,x.impact,x.notes].forEach(v=>extract(v,o));
+    hostTokens(x.affected,o);hostTokens(x.remote,o);
+    String(x.users||'').split(/[,;]+/).map(u=>u.trim().toLowerCase()).filter(u=>u&&!STOP.has(u)).forEach(u=>o.push(['account',u]));
+    String(x.exe||'').split(/[,;\s]+/).map(v=>v.trim().toLowerCase()).filter(v=>v&&!STOP.has(v)&&!/\./.test(v)&&!/^[a-f0-9]{32,64}$/.test(v)&&/^[\w-]{3,}$/.test(v)).forEach(v=>o.push(['file',v]));
+  } else extract(x.text,o);
+  const seen=new Set();return o.filter(([t,v])=>{const k=t+'|'+v;if(seen.has(k))return false;seen.add(k);return true;});
+}
+function items(){
+  return [...S.findings.map(f=>({...f,kind:'f',ref:f})),...S.log.filter(e=>e.type!=='command'&&e.src!=='Findings').map(e=>({...e,kind:'l',ref:e}))];
+}
+const itemTime=x=>new Date(x.kind==='f'?(x.eventTs||x.ts):x.ts);
+const itemText=x=>x.kind==='f'?[x.ioa,x.type,'Affected: '+(x.affected||''),'Remote: '+(x.remote||''),x.exe,x.users,x.impact].filter(Boolean).join('\n'):x.text;
+function iocTable(){
+  const m=new Map();
+  items().forEach(x=>iocsOf(x).forEach(([type,value])=>{
+    const k=type+'|'+value;const t=itemTime(x);
+    if(!m.has(k))m.set(k,{type,value,by:new Set(),first:t,count:0});
+    const r=m.get(k);r.count++;if(x.by)r.by.add(x.by);if(t<r.first)r.first=t;
+  }));
+  const order=['ip','domain','url','hash','file','host','account'];
+  return [...m.values()].sort((a,b)=>order.indexOf(a.type)-order.indexOf(b.type)||a.first-b.first);
+}
+function defang(v,t){
+  if(t==='ip'||t==='domain')return v.replace(/\.(?=[^.]*$)/,'[.]');
+  if(t==='url')return v.replace(/^http/i,'hxxp').replace(/^(hxxps?:\/\/[^/]*)\.([^./]*)(?=\/|$)/i,'$1[.]$2');
+  return v;
+}
+const WORDSTOP=new Set(['the','and','for','from','with','that','this','was','were','has','have','are','on','to','of','in','at','by','a','an','is','it','as','no','not','nil','unknown','affected','remote']);
+const words=s=>new Set(refang(s).toLowerCase().split(/[^a-z0-9.]+/).filter(w=>w.length>2&&!WORDSTOP.has(w)));
+const jac=(a,b)=>{let i=0;a.forEach(x=>{if(b.has(x))i++});const u=a.size+b.size-i;return u?i/u:0};
+const WINDOW_MIN=30;
+function dupPairs(){
+  const list=items().filter(x=>!x.dupOf&&x.by);const out=[];
+  const pre=list.map(x=>({x,ioc:new Set(iocsOf(x).map(([t,v])=>t+'|'+v)),w:words(itemText(x)),t:itemTime(x)}));
+  for(let i=0;i<pre.length;i++)for(let j=i+1;j<pre.length;j++){
+    const A=pre[i],B=pre[j];
+    if(A.x.kind!==B.x.kind||A.x.by===B.x.by)continue;
+    const key=[A.x.id,B.x.id].sort().join('~');if(S.decisions[key])continue;
+    const dt=Math.abs(A.t-B.t)/6e4;if(dt>WINDOW_MIN)continue;
+    let shared=0;A.ioc.forEach(k=>{if(B.ioc.has(k))shared++});
+    const sim=jac(A.w,B.w);
+    if((shared>=1&&sim>=0.25)||sim>=0.6){
+      const [a,b]=A.t<=B.t?[A.x,B.x]:[B.x,A.x];
+      out.push({a,b,key,why:`${shared} shared indicator${shared===1?'':'s'}, ${Math.round(sim*100)}% similar wording, ${Math.round(dt)} min apart`});
+    }
+  }
+  return out;
+}
+
+/* ============ Export / import ============ */
+async function exportPayload(){
+  const blobs={};for(const f of S.findings)for(const a of (f.artifacts||[]))if(a.mode==='file'&&S.blobs[a.sha]&&!blobs[a.sha])blobs[a.sha]={type:S.blobs[a.sha].type,data:await b64(S.blobs[a.sha])};
+  return {format:'cbp-log',version:2,blobs,
+    rfis:S.rfis.map(r=>({...r,ts:new Date(r.ts).toISOString()})),rfcs:S.rfcs.map(r=>({...r,ts:new Date(r.ts).toISOString()})),incident:incId(),operator:{name:S.op.name,call:S.op.call,role:S.op.role},exported:new Date().toISOString(),
+    entries:S.log.map(e=>({...e,ts:e.ts.toISOString()})),
+    findings:S.findings.map(f=>({...f,ts:new Date(f.ts).toISOString(),eventTs:new Date(f.eventTs||f.ts).toISOString()}))};
+}
+async function sendToIC(){
+  if(!S.op.name){openOp();toast('Set your operator name first');return;}
+  if(!S.log.length&&!S.findings.length&&!S.rfis.length&&!S.rfcs.length){toast('Nothing to send yet');return;}
+  const name=`${incId()}_${(S.op.call||S.op.name).replace(/[^\w-]+/g,'')}_${dtg().replace(/\s/g,'')}.json`;
+  const blob=new Blob([JSON.stringify(await exportPayload())],{type:'application/json'});
+  const file=new File([blob],name,{type:'application/json'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});addLog('command','Log sent to IC.','Send');return;}}catch(e){if(e.name==='AbortError')return;}
+  download(blob,name);addLog('command','Log exported for the IC: '+name,'Send');toast('Log file saved, send it to the IC');
+}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);}
+async function importFiles(files){
+  const res={files:0,newEntries:0,newFindings:0,exact:0,sameArt:0,errors:[]};
+  const rIds=new Set([...S.rfis,...S.rfcs].map(r=>r.id));
+  const logIds=new Set(S.log.map(e=>e.id)),fIds=new Set(S.findings.map(f=>f.id));
+  for(const file of files){
+    try{
+      const d=JSON.parse(await file.text());
+      if(d.format!=='cbp-log'){res.errors.push(`${file.name}: not a Cyber Battle Pro log`);continue;}
+      if(d.incident&&F('declare').id&&d.incident!==F('declare').id) res.errors.push(`${file.name}: incident ${d.incident} differs from ${F('declare').id}, imported anyway`);
+      res.files++;let ne=0,nf=0;
+      (d.entries||[]).forEach(e=>{if(logIds.has(e.id)){res.exact++;return;}logIds.add(e.id);S.log.push({...e,ts:new Date(e.ts),imported:true});ne++;});
+      Object.entries(d.blobs||{}).forEach(([sha,v])=>{if(S.blobs[sha]){res.sameArt++;return;}try{S.blobs[sha]=unb64(v.data,v.type)}catch(e){}});
+      (d.rfis||[]).forEach(r=>{if(rIds.has(r.id)){res.exact++;return;}rIds.add(r.id);S.rfis.push({...r,ts:new Date(r.ts),imported:true});});
+      (d.rfcs||[]).forEach(r=>{if(rIds.has(r.id)){res.exact++;return;}rIds.add(r.id);S.rfcs.push({...r,ts:new Date(r.ts),imported:true});});
+      (d.findings||[]).forEach(f=>{if(fIds.has(f.id)){res.exact++;return;}fIds.add(f.id);S.findings.push({...f,ts:new Date(f.ts),eventTs:new Date(f.eventTs||f.ts),imported:true});nf++;});
+      res.newEntries+=ne;res.newFindings+=nf;
+      const k=(d.operator?.call||'')+'|'+(d.operator?.name||'');
+      const prev=S.received[k];
+      S.received[k]={by:d.operator?.name||'Unknown',call:d.operator?.call||'',exported:d.exported,received:new Date(),entries:(prev?.entries||0)+ne,findings:(prev?.findings||0)+nf};
+    }catch(err){res.errors.push(`${file.name}: could not be read`);}
+  }
+  S.log.sort((a,b)=>a.ts-b.ts);S.findings.sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  S.lastImport=res;
+  if(res.files) addLog('command',`LOGS CONSOLIDATED: ${res.files} file(s), ${res.newEntries+res.newFindings} new entries, ${res.exact} exact duplicates skipped.`,'Consolidate');
+  render();renderLog();
+}
+function resolve(key,action){
+  S.decisions[key]=action;
+  if(action==='merged'){
+    const p=dupPairs.last?.find(x=>x.key===key);
+    if(p){p.b.ref.dupOf=p.a.id;addLog('command',`Duplicate merged: entry from ${p.b.by} kept as part of entry from ${p.a.by}.`,'Consolidate');}
+  }
+  render();renderLog();
+}
+
+/* ============ Text output ============ */
+function fieldText(f,fd,L){
+  if(fd.row){fd.row.forEach(x=>fieldText(f,x,L));return;}
+  if(fd.type==='marker'){L.push('',`  ${fd.label.toUpperCase()}`,'');return;}
+  if(fd.type==='sevcards'){const k=f.sev;L.push(`  Severity: ${k}, ${SEVS[k].criteria}`,`  Escalation: ${SEVS[k].esc}`);return;}
+  if(fd.type==='custom'){
+    if(fd.c==='roster') S.roster.forEach(r=>L.push(`  ${r.call} ${r.role} ${r.name}`));
+    if(fd.c==='tasks'){L.push(`  Tasks by team / individual (${curPhase()}):`);phaseTasks().map(x=>x.t).forEach(t=>L.push(`    - ${t.who||'Section'}: ${t.task}${t.due?' NLT '+t.due:''}`));}
+    if(fd.c==='board') phaseTasks().map(x=>x.t).forEach(t=>L.push(`  ${t.who||'Section'}: ${t.task} [${t.status}]`));
+    if(fd.c==='phase') L.push(`  Current phase: ${S.phase||'Not set'}`);
+    if(fd.c==='reclass') L.push(`  Severity: ${sevKey()}`);
+    if(fd.c==='hostboard') hostBoard().forEach(x=>L.push(`  ${x.host}: ${x.status}`));
+    if(fd.c==='findlist') S.findings.filter(x=>!x.dupOf).forEach(x=>L.push(`  ${x.found||''} ${x.by}: ${x.type}, ${x.ioa}.${(x.attack||[]).length?' ATT&CK '+x.attack.join(', ')+'.':''} Affected ${x.affected||'unknown'}, remote ${x.remote||'unknown'}`));
+    if(fd.c==='iocs') iocTable().forEach(x=>L.push(`  ${x.type}: ${defang(x.value,x.type)}`));
+    return;}
+  const v=f[fd.k];
+  if(fd.type==='list'){const rows=(v||[]).filter(r=>fd.cols.some(c=>(r[c.f]||'').trim()));if(!rows.length)return;
+    L.push(`  ${fd.label}:`);rows.forEach((r,i)=>L.push(`    ${fd.prefix?fd.prefix+' '+(i+1)+': ':'- '}${fd.cols.map(c=>r[c.f]).filter(Boolean).join(fd.cols.length>2?', ':': ')}`));return;}
+  if(fd.type==='check'){L.push(`  ${fd.label}: ${v?'Yes':'No'}`);return;}
+  if(fd.disabledIf&&fd.disabledIf())return;
+  if(v===undefined||v==='')return;
+  L.push(`  ${fd.label}: ${String(v).replace(/\n/g,'\n    ')}`);
+}
+function stepText(step){
+  const f=F(step.id),L=[];
+  if(step.header) L.push(...step.header());
+  else{L.push(`${step.title.toUpperCase()}: ${incId()}  ${stamp(new Date())}`);if(step.id!=='declare')L.push(`${sevKey()}   IC: ${F('declare').ic||''}`);}
+  L.push('');
+  step.sections.forEach(sec=>{
+    if(sec.fields&&sec.fields.length===1&&sec.fields[0].c==='bbstatus')return;
+    if(sec.h&&!['Header','Back brief by','New finding','Import','Section reporting','Possible duplicates'].includes(sec.h)) L.push(sec.h.toUpperCase());
+    if(sec.w5) sec.w5.forEach(w=>L.push(`  ${w.w.toUpperCase()}: ${f[w.k]??''}`));
+    if(sec.fields&&!['Header','Import','Section reporting','Possible duplicates'].includes(sec.h)) sec.fields.forEach(fd=>{
+      if(sec.h==='Back brief by'||(step.id==='orders'&&fd.k==='issuer'))return;
+      if(sec.h==='New finding')return;
+      fieldText(f,fd,L);});
+    L.push('');
+  });
+  return L.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+/* ============ Render ============ */
+function renderRail(){
+  const phases=[...new Set(STEPS.map(s=>s.phase))];let n=0;
+  document.getElementById('rail').innerHTML=phases.map(p=>`<div class="phase"><h3>${p}</h3>${STEPS.filter(s=>s.phase===p).map(s=>{if(s.phase==='Orders')n++;const r=s.repeat?s.repeat():0;
+    const warn=s.id==='merge'&&dupPairs().length;
+    const seq=s.phase==='Orders';
+    return `<button class="step-link${s.id===cur?' active':''}${S.done[s.id]||r?' done':''}${seq?'':' nonum'}" data-go="${s.id}"><span class="dot">${S.done[s.id]||r?'✓':seq?n:''}</span>${s.title}${warn?`<span class="rep warn">${dupPairs().length} to review</span>`:r?`<span class="rep">×${r}</span>`:''}</button>`}).join('')}</div>`).join('');
+}
+function render(){
+  const s=STEP(cur),idx=STEPS.indexOf(s);
+  dupPairs.last=dupPairs();
+  const num=s.repeat&&['sitrep','frago'].includes(s.id)?s.repeat()+1:0;
+  const ordSteps=STEPS.filter(x=>x.phase==='Orders');
+  let h=banners()+`<div class="step-head"><div class="ph">${s.phase==='Orders'?`Orders, step ${ordSteps.indexOf(s)+1} of ${ordSteps.length}`:s.phase}</div><h1>${s.title}${num?' '+num:''}</h1><p>${s.purpose}</p></div>`;
+  s.sections.forEach(sec=>{
+    h+=`<section class="sec">${sec.h?`<h2>${sec.h}${sec.sub?`<small>${sec.sub}</small>`:''}</h2>`:''}`;
+    if(sec.w5) h+=sec.w5.map(w=>`<div class="w5"><div><b>${w.w}</b><small>${w.sub}</small></div><textarea aria-label="${w.w}" data-s="${s.id}" data-k="${w.k}" rows="2">${esc(val(s.id,w))}</textarea></div>`).join('');
+    if(sec.fields) h+=sec.fields.map(fd=>fieldHTML(s.id,fd)).join('');
+    h+=`</section>`;
+  });
+  if(s.history){const hs=s.history();if(hs.length) h+=`<section class="sec hist"><h2>Issued</h2>${hs.map(x=>`<details><summary>${esc(x.t)}</summary><pre>${esc(x.body)}</pre></details>`).join('')}</section>`;}
+  const extra=['wngo','bb','orders'].includes(s.id)?`<button class="btn" id="orderPdf">Download PDF</button>`:s.id==='findings'?`<button class="btn" id="sendBtn2">Send to IC</button><button class="btn" id="pdfBtn">Download journal (PDF)</button>`:'';
+  const exec=s.phase==='Execute';
+  const prim=s.primary?(s.command&&!canCommand()?`<span class="cmdnote">Issued by the IC or 2IC</span>`:`<button class="btn ${s.primary.cls||'primary'}" id="primary">${typeof s.primary.label==='function'?s.primary.label():s.primary.label}</button>`):'';
+  h+=`<div class="actions">${prim}${extra}
+    ${s.id!=='merge'?`<button class="btn" id="copyStep">Copy text</button>`:''}<span class="spacer"></span>
+    ${!exec&&idx>0?`<button class="btn" data-go="${STEPS[idx-1].id}">Back</button>`:''}
+    ${exec?'':idx<STEPS.length-1?`<button class="btn" data-go="${STEPS[idx+1].id}">Next step</button>`:`<button class="btn" id="pptBtn2">Export to PowerPoint</button>`}</div>`;
+  h+=`<footer class="credit">© 2026 Powered by <a href="https://cyberlav.io" target="_blank" rel="noopener">Cyberlav.io</a></footer>`;
+  document.getElementById('main').innerHTML=h;
+  renderRail();renderBar();scheduleSync();
+  document.querySelectorAll('textarea.tarea,textarea.grow').forEach(growTa);
+  const a=document.querySelector('.step-link.active');if(a&&window.innerWidth<=760)a.scrollIntoView({inline:'center',block:'nearest'});
+}
+function renderBar(){
+  const f=S.forms.declare||{};
+  document.getElementById('barId').textContent=S.hHour?f.id:(S.op.inc||'No incident');
+  const sv=document.getElementById('barSev');sv.hidden=!S.hHour;if(S.hHour){sv.textContent=sevKey();sv.dataset.s=SEVS[sevKey()].n;}
+  const ob=document.getElementById('opBtn');ob.textContent=S.op.name?`${S.op.call?S.op.call+' ':''}${S.op.name}`:'Set operator';ob.classList.toggle('op-unset',!S.op.name);
+}
+function renderLog(){
+  scheduleSync();
+  const ul=document.getElementById('entries');const showM=document.getElementById('showMerged').checked;
+  const list=S.log.filter(e=>showM||!e.dupOf);
+  document.getElementById('logCount').textContent=list.length;
+  if(!list.length){ul.innerHTML='<li class="empty" style="display:block">Nothing logged yet. Use the field above to record what you see on the network, or declare the incident.</li>';return;}
+  ul.innerHTML=list.slice().reverse().map(e=>`<li data-t="${e.type}" class="${e.dupOf?'dupe':''}"><span class="bar-c"></span><div><div class="t"><span>${dtg(e.ts)}</span><span>${local(e.ts)}</span>${S.hHour?`<span>${hplus(e.ts)}</span>`:''}${e.by?`<span class="by">${esc(e.by)}</span>`:''}${e.src?`<span>${esc(e.src)}</span>`:''}</div><div class="txt">${esc(e.text)}</div></div></li>`).join('');
+}
+function hplus(ts){if(!S.hHour)return'';const d=Math.floor((ts-S.hHour)/1000),s=d<0?'H-':'H+',a=Math.abs(d);return `${s}${pad(Math.floor(a/3600))}:${pad(Math.floor(a/60)%60)}`}
+function tick(){
+  const now=new Date();document.getElementById('dtg').innerHTML='<small>ZULU</small> '+dtg(now);
+  const el=document.getElementById('hclock');
+  if(!S.hHour){el.textContent='Not declared';el.className='hclock idle';return;}
+  const end=S.endHour||now,d=Math.floor((end-S.hHour)/1000);
+  el.textContent=`H+${pad(Math.floor(d/3600))}:${pad(Math.floor(d/60)%60)}:${pad(d%60)}`;
+  el.className='hclock'+(S.endHour?' closed':'');
+}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2000)}
+async function copy(text,msg){try{await navigator.clipboard.writeText(text);toast(msg||'Copied')}catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast(msg||'Copied')}}
+
+/* ============ Operator dialog ============ */
+const dlg=document.getElementById('opDlg');
+function openOp(){const hq=!!(SYNC.info&&SYNC.info.ic);
+  document.getElementById('opTitle').textContent=hq?'Incident Commander':'Operator';
+  document.getElementById('opText').textContent=hq?`You are running the Field HQ${SYNC.info.hq&&SYNC.info.hq!=='cbp-hq'?' for '+SYNC.info.hq:''} and you are the Incident Commander. Enter your name and callsign: they sign your orders and log entries, and the section sees them on the net.`:'Your name and callsign sign your findings and log entries, and identify you to the IC on the net.';document.getElementById('opRole').closest('.fld').style.display=SYNC.info?'none':'';document.getElementById('opInc').closest('.fld').style.display=hq||(SYNC.info)?'none':'';document.getElementById('opName').value=S.op.name;document.getElementById('opCall').value=S.op.call;document.getElementById('opRole').value=S.op.role;document.getElementById('opInc').value=S.op.inc||F('declare').id||'';dlg.showModal?dlg.showModal():dlg.setAttribute('open','');}
+document.getElementById('opSave').onclick=()=>{
+  S.op.name=document.getElementById('opName').value.trim();S.op.call=document.getElementById('opCall').value.trim();S.op.role=!SYNC.info?document.getElementById('opRole').value:SYNC.info.ic?'Incident Commander':(['2IC','Intel'].includes(SYNC.role)?SYNC.role:'Analyst');if(!SYNC.info)S.op.inc=document.getElementById('opInc').value.trim();
+  const fd=F('findings');if(!fd.analyst)fd.analyst=S.op.name;
+  const dc=F('declare');if(S.op.role==='Incident Commander'&&S.op.name&&(!dc.ic||dc.ic==='[Rank, name]'))dc.ic=S.op.name;
+  if(S.op.inc&&!S.hHour)dc.id=S.op.inc;
+  dlg.close();render();toast('Operator saved');
+  if(SYNC.state==='online'){sendWS({t:'op',op:S.op});rejoinSave();}else if(SYNC.info&&SYNC.code&&['solo','denied'].includes(SYNC.state))teamConnect();};
+document.getElementById('opCancel').onclick=()=>dlg.close();
+
+/* ============ Events ============ */
+function growTa(t){t.style.height='auto';t.style.height=(t.scrollHeight+2)+'px';}
+document.addEventListener('input',e=>{
+  if(e.target.classList&&(e.target.classList.contains('tarea')||e.target.classList.contains('grow')))growTa(e.target);
+  scheduleSync(800);
+  const t=e.target;
+  if(t.dataset.hostset){const h=t.dataset.hostset,cur0=(hostBoard().find(x=>x.host===h)||{}).status;if(t.value!==cur0)setHost(h,t.value);return;}
+  if(t.id==='attackSel'&&t.value){const f=F('findings');(f.attack=f.attack||[]).includes(t.value)||f.attack.push(t.value);render();return;}
+  if(t.dataset.check){F(t.dataset.s)[t.dataset.k]=t.checked;render();return;}
+  if(t.dataset.s==='declare'&&t.dataset.k==='id'){const old=F('declare').id;F('declare').id=t.value;if(t.value.length>=5)renameIncident(old,t.value);S.op.inc=t.value;}
+  if(t.dataset.k&&t.dataset.s){F(t.dataset.s)[t.dataset.k]=t.value;if(t.dataset.s==='declare')renderBar();
+    if(t.dataset.s==='bb'&&t.dataset.k==='who'){render();}
+    if(t.dataset.s==='findings'&&t.dataset.k==='event'){t.style.borderColor=parseDTG(t.value)?'':'var(--unknown)';}}
+  if(t.dataset.artloc!==undefined){F('findings').arts[+t.dataset.artloc].loc=t.value;return;}
+  if(t.dataset.ls){F(t.dataset.ls)[t.dataset.lk][+t.dataset.li][t.dataset.lf]=t.value;}
+  if(t.dataset.r!==undefined) S.roster[+t.dataset.r][t.dataset.f]=t.value;
+  if(t.dataset.t!==undefined&&t.dataset.f){const k=S.tasks[+t.dataset.t];k[t.dataset.f]=t.value;if(['task','who'].includes(t.dataset.f)&&k.ackBy){k.ackBy='';k.ackAt='';}}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='importFiles'&&t.files.length){importFiles([...t.files]);return;}
+  if((t.id==='artFile'||t.id==='artCam')&&t.files.length){attachFiles([...t.files]);return;}
+  if(t.id==='showMerged'){renderLog();return;}
+  if(t.dataset.status!==undefined){const k=S.tasks[+t.dataset.status];const old=k.status;k.status=t.value;t.dataset.v=t.value;
+    addLog(t.value==='Blocked'?'unknown':'friendly',`Task ${t.value.toLowerCase()}: ${k.who||'Section'}, ${k.task}${old?' (was '+old.toLowerCase()+')':''}`,'Operations');}
+});
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.go){cur=b.dataset.go;render();window.scrollTo(0,0);return;}
+  if(b.dataset.sev){e.preventDefault();F('declare').sev=b.dataset.sev;render();return;}
+  if(b.dataset.resev){if(!canCommand())return;const old=sevKey();if(old!==b.dataset.resev){F('declare').sev=b.dataset.resev;addLog('command',`SEVERITY RECLASSIFIED ${old} to ${b.dataset.resev}. ${SEVS[b.dataset.resev].esc}`,'Operations');}render();return;}
+  if(b.id==='primary'){const s=STEP(cur);if(s.command&&!canCommand()){toast('Only the IC or 2IC can do this');return;}
+    if(cur==='stand'&&!S.hHour){toast('Declare the incident first');return;}
+    const r=s.primary.run();if(r===false)return;S.done[cur]=true;
+    if(r==='stay'){render();toast((typeof s.primary.label==='function'?s.primary.label():s.primary.label).replace('Submit sustain / improve','Submitted').replace('Issue','Issued').replace('Confirm','Confirmed').replace('Record','Recorded'));window.scrollTo(0,0);return;}
+    const i=STEPS.indexOf(s);if(i<STEPS.length-1)cur=STEPS[i+1].id;render();window.scrollTo(0,0);toast('Logged');return;}
+  if(b.id==='copyStep'){copy(stepText(STEP(cur)),'Copied, ready to paste');return;}
+  if(b.dataset.ladd){const [s,k]=b.dataset.ladd.split('|');const fd=allFields(STEP(s).sections.flatMap(x=>x.fields||[])).find(x=>x.k===k);F(s)[k].push(Object.fromEntries(fd.cols.map(c=>[c.f,''])));render();return;}
+  if(b.dataset.ldel){const [s,k,i]=b.dataset.ldel.split('|');F(s)[k].splice(+i,1);render();return;}
+  if(b.dataset.add==='roster'){S.roster.push({name:'',role:'Analyst',call:'',task:''});render();return;}
+  if(b.dataset.add==='task'){if(!canCommand())return;S.tasks.push({who:'',task:'',due:'',status:'Assigned',phase:curPhase()});render();return;}
+  if(b.dataset.carry){if(!canCommand())return;const from=b.dataset.carry;S.tasks.filter(t=>(t.phase||'Identification')===from).forEach(t=>S.tasks.push({...t,status:'Assigned',phase:curPhase()}));addLog('command',`Tasks carried over from ${from} to ${curPhase()}.`,'Operations');render();return;}
+  if(b.dataset.delR!==undefined){S.roster.splice(+b.dataset.delR,1);render();return;}
+  if(b.dataset.delT!==undefined){S.tasks.splice(+b.dataset.delT,1);render();return;}
+  if(b.dataset.phase){if(!canCommand())return;if(!S.hHour){toast('Declare the incident first');return;}if(S.phase!==b.dataset.phase){S.phase=b.dataset.phase;addLog('command','PHASE: '+S.phase,'Operations');ensureMemberTasks();}render();return;}
+  if(b.id==='hostAddBtn'){const v=hostTokensOf(document.getElementById('hostAdd').value)[0];if(!v){toast('Enter a hostname or IP');return;}if(hostBoard().some(x=>x.host===v)){toast('Already on the board');return;}setHost(v,'Compromised','added manually');return;}
+  if(b.dataset.untech){const f=F('findings');f.attack=(f.attack||[]).filter(x=>x!==b.dataset.untech);render();return;}
+  if(b.dataset.hostset){return;}
+  if(b.id==='refToggle'){F('ref')._open=!F('ref')._open;render();return;}
+  if(b.id==='addRef'){const r=F('ref');if(!(r.name||'').trim()){toast('Name the artifact');return;}
+    const sha=(r.sha||'').trim().toLowerCase();if(sha&&!/^[a-f0-9]{64}$/.test(sha)){toast('SHA-256 must be 64 hex characters');return;}
+    const f=F('findings');(f.arts=f.arts||[]).push({id:nid('a'),name:r.name.trim(),size:(r.size||'').trim(),sha,loc:(r.loc||'').trim(),mode:'ref',by:me()||f.analyst||'',ts:new Date()});
+    S.forms.ref={_open:false};render();toast('Reference added');return;}
+  if(b.dataset.artdel!==undefined){F('findings').arts.splice(+b.dataset.artdel,1);render();return;}
+  if(b.dataset.artdl){download(S.blobs[b.dataset.artdl],b.dataset.name);return;}
+  if(b.dataset.merge){resolve(b.dataset.merge,'merged');toast('Merged');return;}
+  if(b.dataset.keep){resolve(b.dataset.keep,'kept');toast('Kept both');return;}
+  if(b.id==='iocCsv'){const rows=[['type','value','first_seen_utc','reported_by','count'],...iocTable().map(x=>[x.type,x.value,x.first.toISOString(),[...x.by].join('; '),x.count])];
+    download(new Blob([rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')],{type:'text/csv'}),`${incId()}_iocs.csv`);toast('CSV downloaded');return;}
+  if(b.id==='iocCopy'){copy(iocTable().map(x=>`${x.type}\t${defang(x.value,x.type)}`).join('\n'),'IOC list copied');return;}
+  if(b.classList.contains('tb')){document.querySelectorAll('.tb').forEach(x=>x.classList.toggle('on',x===b));return;}
+  if(b.id==='qaAdd')quickAdd();
+  if(b.id==='opBtn')openOp();
+  if(b.id==='teamBtn')openTeam();
+  if(b.dataset.ack){ackDoc(b.dataset.ack);return;}
+  if(b.dataset.acktask){ackTask(b.dataset.acktask);return;}
+  if(b.dataset.ackinj){ackInject(b.dataset.ackinj);return;}
+  if(b.dataset.seenans){SYNC.seenAns=SYNC.seenAns||new Set();SYNC.seenAns.add(b.dataset.seenans);render();return;}
+  if(b.dataset.viewrfi){SYNC.seenAns=SYNC.seenAns||new Set();SYNC.seenAns.add(b.dataset.viewrfi);cur=b.dataset.step||'rfi';render();window.scrollTo(0,document.body.scrollHeight);return;}
+  if(b.dataset.viewdoc){const d=S.docs.find(x=>x.id===b.dataset.viewdoc);if(d){cur=d.type==='frago'?'frago':d.type;render();window.scrollTo(0,0);}return;}
+  if(b.id==='sendBtn'||b.id==='sendBtn2')sendToIC();
+  if(b.id==='themeBtn'){const d=document.documentElement.dataset.theme==='dark';document.documentElement.dataset.theme=d?'light':'dark';b.textContent=d?'Dark':'Light';}
+  if(b.id==='logBtn')document.getElementById('log').classList.add('open');
+  if(b.id==='closeLog')document.getElementById('log').classList.remove('open');
+  if(b.id==='copyLog')copy(logText(),'Log copied');
+  if(b.id==='clearBtn'){if(confirm('Clear the whole session? This cannot be undone.')){S.log=[];S.findings=[];location.reload();}}
+  if(b.id==='pptBtn'||b.id==='pptBtn2')exportPptx(b);
+  if(b.id==='pdfBtn')findingsPdf(b);
+  if(b.id==='orderPdf')orderPdf(cur,b);
+});
+document.getElementById('qaText').addEventListener('keydown',e=>{if(e.key==='Enter')quickAdd()});
+function quickAdd(){const i=document.getElementById('qaText');const v=i.value.trim();if(!v)return;
+  const t=document.querySelector('.tb.on').dataset.t;addLog(t,v,'');i.value='';i.focus();if(cur==='merge')render();}
+function logText(){return `SESSION LOG ${incId()}\n`+S.log.filter(e=>!e.dupOf).map(e=>`${dtg(e.ts)} (${local(e.ts)}) ${hplus(e.ts)} ${e.by?e.by+' ':''}[${e.type.toUpperCase()}] ${e.text.replace(/\n/g,' | ')}`).join('\n')}
+window.addEventListener('beforeunload',e=>{if(S.log.length||S.findings.length){e.preventDefault();e.returnValue='';}});
+
+
+/* ============ Team sync (Field HQ server) ============ */
+const SYNC={info:null,ws:null,state:'solo',code:'',serverId:'',lastSeq:0,sent:new Set(),hash:{},members:[],retry:0,timer:null,ft:null,dirty:false,inbox:[],acked:new Set(),joinedOnce:{}};
+function pushDoc(type,title,text,applyForm){if(['wngo','orders','frago','bb','stand'].includes(type)&&!canCommand())return;S.docs.push({id:nid('d'),type,title,text,form:applyForm?JSON.parse(JSON.stringify(F(type))):null,by:me()||F('declare').ic||'',origin:S.sid,ts:new Date()});}
+function docHistory(type){return S.docs.filter(d=>d.type===type).map(d=>({t:`${d.title}, ${stamp(new Date(d.ts))}${d.by?', '+d.by:''}${d.origin!==S.sid?' (received)':''}`,body:d.text}));}
+const myName=()=>(S.op.name||'').trim().toLowerCase();
+function myOpenTasks(){if(!SYNC.joined||!myName())return [];return S.tasks.filter(t=>t.id&&(t.who||'').trim().toLowerCase()===myName()&&(t.task||'').trim()&&!(t.ackBy||'').trim());}
+function checkMyTasks(){
+  SYNC.taskSeen=SYNC.taskSeen||new Set();
+  const fresh=myOpenTasks().filter(t=>!SYNC.taskSeen.has(t.id));
+  if(!fresh.length)return;
+  fresh.forEach(t=>SYNC.taskSeen.add(t.id));
+  toast(fresh.length>1?`${fresh.length} new tasks assigned to you`:'New task assigned to you');
+  try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}
+  try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.25);}catch(e){}
+  if(document.hidden){const t0=document.title;document.title='New task · '+t0;const back=()=>{document.title=t0;document.removeEventListener('visibilitychange',back);};document.addEventListener('visibilitychange',back);}
+}
+function ackTask(id){
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  t.ackBy=me();t.ackAt=new Date().toISOString();
+  addLog('command',`ACK: ${me()||'Analyst'} acknowledged task (${t.phase||'Identification'}): ${t.task}`,'Tasks');
+  scheduleSync(0);render();toast('Task acknowledged');
+}
+const respFor=id=>S.wc.filter(x=>x.type==='answer'&&x.ref===id);const rfiAnswers=respFor;
+function reqOf(x){const arr=x.on==='rfc'?S.rfcs:S.rfis,r=arr.find(y=>y.id===x.ref);return r?{r,n:arr.indexOf(r)+1,k:x.on==='rfc'?'RFC':'RFI'}:null;}
+const respLabel=(q,x)=>q.k==='RFC'?`RFC ${q.n} ${x.decision?x.decision.toLowerCase():'commented'} by WC`:`RFI ${q.n} answered by WC`;
+const isWC=v=>/^(WC|1UP)$/i.test(String(v||''));
+const openInjects=()=>S.wc.filter(x=>x.type==='inject'&&!S.wc.some(a=>a.type==='ack'&&a.ref===x.id));
+function newAnswers(){SYNC.seenAns=SYNC.seenAns||new Set();return S.wc.filter(x=>{if(x.type!=='answer'||SYNC.seenAns.has(x.id))return false;const q=reqOf(x);if(!q)return false;return canCommand()||(q.r.author||'').trim().toLowerCase()===myName();});}
+function onWcMsg(x){
+  if(x.type==='inject'){
+    const lt=`INJECT from White Cell (${x.prec||'PRIORITY'}): ${x.text}`;if(SYNC.info&&SYNC.info.ic&&!S.log.some(e=>e.text===lt))addLog('command',lt,'White Cell');
+    if(canCommand()){toast('White Cell inject received');alertBeep();}
+  }
+  if(x.type==='answer'){
+    const q=reqOf(x);if(!q)return;
+    const lt=`${respLabel(q,x)}${x.text?': '+x.text:''}`;if(SYNC.info&&SYNC.info.ic&&!S.log.some(e=>e.text===lt))addLog(x.decision==='Rejected'?'unknown':'neutral',lt,'White Cell');
+    if(canCommand()||(q.r.author||'').trim().toLowerCase()===myName()){toast(respLabel(q,x));alertBeep();}
+  }
+}
+function alertBeep(){try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=660;g.gain.value=.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.25);}catch(e){}}
+function ackInject(id){
+  const x=S.wc.find(y=>y.id===id);if(!x||!canCommand())return;
+  S.wc.push({id:nid('w'),type:'ack',ref:id,text:x.text,by:me()||'IC',ts:new Date()});
+  addLog('command',`ACK: ${me()||'IC'} acknowledged White Cell inject: ${x.text}`,'White Cell');
+  scheduleSync(0);render();toast('Inject acknowledged');
+}
+function banners(){
+  const tasks=myOpenTasks().map(t=>`<div class="banner task"><b>New task</b><span><strong>${esc(t.task)}</strong>${t.due?' · by '+esc(t.due):''} · ${esc(t.phase||'Identification')}</span><button class="btn sm primary" data-acktask="${t.id}">Acknowledge</button></div>`).join('');
+  const inj=canCommand()&&SYNC.joined?openInjects().map(x=>`<div class="banner inject"><b>${esc(x.prec||'PRIORITY')} from White Cell</b><span><strong>${esc(x.text)}</strong> · ${esc(ldtg(new Date(x.ts)))}</span><button class="btn sm primary" data-ackinj="${esc(x.id)}">Acknowledge</button></div>`).join(''):'';
+  const ans=newAnswers().map(x=>{const q=reqOf(x);return `<div class="banner${x.decision==='Rejected'?' inject':''}"><b>${esc(respLabel(q,x))}</b><span>${esc(x.text||'')}</span><button class="btn sm" data-viewrfi="${esc(x.id)}" data-step="${q.k.toLowerCase()}">View</button><button class="btn sm primary" data-seenans="${esc(x.id)}">Got it</button></div>`}).join('');
+  return inj+tasks+ans+bannersDocs();
+}
+function bannersDocs(){
+  const list=SYNC.inbox.filter(d=>!SYNC.acked.has(d.id));
+  return list.map(d=>`<div class="banner"><b>${esc(d.title)} received</b><span>From ${esc(d.by||'IC')}, ${stamp(new Date(d.ts))}</span><button class="btn sm" data-viewdoc="${d.id}">View</button><button class="btn sm primary" data-ack="${d.id}">Acknowledge</button></div>`).join('');
+}
+function ackDoc(id){const d=S.docs.find(x=>x.id===id);SYNC.acked.add(id);if(d)addLog('command',`ACK: ${me()||'Analyst'} acknowledged ${d.title} from ${d.by||'IC'}.`,'Team');render();toast('Acknowledged');}
+const REJOIN_KEY='cbp.rejoin',REJOIN_TTL=12*36e5;
+function rejoinSave(){try{if(!SYNC.info||SYNC.info.ic||!SYNC.code)return;localStorage.setItem(REJOIN_KEY,JSON.stringify({host:location.host,code:SYNC.code,name:S.op.name,call:S.op.call,ts:Date.now()}));}catch(e){}}
+function rejoinLoad(){try{const r=JSON.parse(localStorage.getItem(REJOIN_KEY)||'null');if(!r||r.host!==location.host||Date.now()-r.ts>REJOIN_TTL){localStorage.removeItem(REJOIN_KEY);return null;}return r;}catch(e){return null;}}
+function rejoinClear(){try{localStorage.removeItem(REJOIN_KEY);}catch(e){}}
+async function detectServer(){
+  if(location.protocol==='file:')return renderTeam();
+  try{
+    const r=await fetch('cbp/info',{cache:'no-store'});if(!r.ok)return renderTeam();
+    const j=await r.json();if(j.app!=='cbp')return renderTeam();
+    SYNC.info=j;
+    if(!j.ic&&!['2IC','Intel'].includes(S.op.role))S.op.role='Analyst';
+    const h=new URLSearchParams(location.hash.slice(1));
+    const code=h.get('join')||j.code||'';
+    if(h.get('join'))history.replaceState(null,'',location.pathname+location.search);
+    if(!S.hHour){S.op.inc=j.incident;F('declare').id=j.incident;renderBar();}
+    const back=!code&&!j.ic?rejoinLoad():null;
+    if(back){SYNC.code=back.code;S.op.name=S.op.name||back.name||'';S.op.call=S.op.call||back.call||'';if(!F('findings').analyst)F('findings').analyst=S.op.name;renderBar();
+      if(S.op.name){teamConnect();toast('Rejoining the section');return;}}
+    if(code){SYNC.code=code;if(!S.op.name){openOp();toast('Enter your name to join the section');}else teamConnect();}
+    else{renderTeam();openTeam();setTimeout(()=>document.getElementById('teamCode')?.focus(),50);}
+  }catch(e){renderTeam();}
+}
+function sendWS(m){if(SYNC.ws&&SYNC.ws.readyState===1)SYNC.ws.send(JSON.stringify(m));}
+function teamConnect(){
+  if(!SYNC.info||!SYNC.code)return renderTeam();
+  clearTimeout(SYNC.timer);if(SYNC.ws){try{SYNC.ws.onclose=null;SYNC.ws.close()}catch(e){}}
+  SYNC.state='connecting';renderTeam();
+  let ws;try{ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');}catch(e){SYNC.state='offline';renderTeam();return;}
+  SYNC.ws=ws;
+  ws.onopen=()=>ws.send(JSON.stringify({t:'hello',code:SYNC.code,incident:SYNC.info.incident,op:S.op,have:SYNC.lastSeq,sid:SYNC.serverId}));
+  ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}onSync(m);};
+  ws.onclose=()=>{if(SYNC.ws!==ws)return;SYNC.ws=null;
+    if(['denied','left','ended'].includes(SYNC.state)){renderTeam();return;}
+    SYNC.state='offline';renderTeam();SYNC.timer=setTimeout(teamConnect,Math.min(15000,1000*2**Math.min(SYNC.retry++,4)));};
+}
+function teamLeave(){rejoinClear();SYNC.state='left';clearTimeout(SYNC.timer);if(SYNC.ws)SYNC.ws.close();SYNC.ws=null;SYNC.state='solo';renderTeam();toast('Left the team session. Your copy stays on this device.');}
+function onSync(m){
+  if(m.t==='denied'){SYNC.state='denied';SYNC.code='';rejoinClear();toast(m.reason||'Access denied');renderTeam();return;}
+  if(m.t==='welcome'){
+    SYNC.retry=0;SYNC.state='online';SYNC.members=m.members||[];SYNC.joined=true;rejoinSave();SYNC.me=m.you;SYNC.role=m.role||'member';
+    if(m.incident&&SYNC.info){SYNC.info.incident=m.incident;if(!S.hHour){F('declare').id=m.incident;S.op.inc=m.incident;renderBar();}}
+    if(m.serverId!==SYNC.serverId){SYNC.serverId=m.serverId;SYNC.lastSeq=0;SYNC.sent.clear();SYNC.hash={};}
+    renderTeam();return;}
+  if(m.t==='entries'){applyEntries(m.items||[]);return;}
+  if(m.t==='synced'){
+    rosterFromMembers();
+    if(!SYNC.joinedOnce[SYNC.serverId]){SYNC.joinedOnce[SYNC.serverId]=true;addLog('neutral',`${me()||'Operator'} joined the team session.`,'Team');toast('Joined the section');
+      if(SYNC.info&&SYNC.info.ic&&!SYNC.icShown){SYNC.icShown=true;setTimeout(openTeam,300);}}
+    flush();return;}
+  if(m.t==='presence'){const was=SYNC.wc||0;SYNC.members=m.members||[];SYNC.wc=m.wc||0;wcChanged(was,SYNC.wc);renderTeam();rosterFromMembers();return;}
+  if(m.t==='role'){const was=SYNC.role;SYNC.role=m.role;if(was!==m.role){
+      if(['2IC','Intel'].includes(m.role))S.op.role=m.role;else if(m.role==='member'&&['2IC','Intel'].includes(S.op.role))S.op.role='Analyst';
+      renderBar();sendWS({t:'op',op:S.op});
+      toast(m.role==='2IC'?'You are now 2IC: you can issue orders':m.role==='Intel'?'You are now Intel':m.role==='member'?'Role removed':'Role: '+m.role);softRender();}return;}
+  if(m.t==='notice'){toast(m.text);return;}
+  if(m.t==='ending'){SYNC.endAt=m.at;endBanner();return;}
+  if(m.t==='ending-cancelled'){SYNC.endAt=null;endBanner();toast('End of session cancelled');return;}
+  if(m.t==='ended'){rejoinClear();SYNC.endAt=null;SYNC.state='ended';clearTimeout(SYNC.timer);try{SYNC.ws&&SYNC.ws.close()}catch(e){}endBanner(true);renderTeam();return;}
+}
+const isoD=v=>new Date(v).toISOString();
+const COLL={hoststat:()=>S.hoststat,wcmsg:()=>S.wc,aar:()=>S.aars,log:()=>S.log,finding:()=>S.findings,rfi:()=>S.rfis,rfc:()=>S.rfcs,sitrep:()=>S.sitreps,frago:()=>S.fragos,backbrief:()=>S.backbriefs,doc:()=>S.docs};
+function applyEntries(list){
+  let ui=false,logChanged=false;
+  for(const it of list){
+    SYNC.lastSeq=Math.max(SYNC.lastSeq,it.seq||0);
+    SYNC.sent.add(it.kind+':'+it.id);
+    const d=it.data||{};
+    if(it.kind==='blob'){if(d.sha&&!S.blobs[d.sha]){try{S.blobs[d.sha]=unb64(d.data,d.type)}catch(e){}ui=true;}continue;}
+    if(it.kind==='state'){applyState(d.key,d.value);ui=true;continue;}
+    const arr=COLL[it.kind]&&COLL[it.kind]();if(!arr||arr.some(x=>x.id===it.id))continue;
+    const rec={...d,ts:new Date(d.ts)};if(!rec.id)rec.id=it.id;if(d.eventTs)rec.eventTs=new Date(d.eventTs);
+    arr.push(rec);arr.sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+    if(it.kind==='log')logChanged=true;else ui=true;
+    if(it.kind==='wcmsg')onWcMsg(rec);
+    if(it.kind==='doc'&&d.origin!==S.sid&&d.type!=='bb'){
+      if(d.form)S.forms[d.type]=JSON.parse(JSON.stringify(d.form));
+      if(d.type!=='frago')S.done[d.type]=true;
+      SYNC.inbox.push(rec);
+    }
+  }
+  if(logChanged)renderLog();
+  if(ui||logChanged)softRender();
+}
+function ensureMemberTasks(){
+  if(!(SYNC.info&&SYNC.state==='online'&&canCommand()))return false;
+  const ph=curPhase();let changed=false;
+  SYNC.members.filter(m=>m.name&&m.name.trim()&&m.hq!=='IC').forEach(m=>{
+    const n=m.name.trim();
+    if(!S.tasks.some(t=>(t.phase||'Identification')===ph&&(t.who||'').trim().toLowerCase()===n.toLowerCase())){S.tasks.push({id:nid('t'),who:n,task:'',due:'',status:'Assigned',phase:ph});changed=true;}
+  });
+  return changed;
+}
+function rosterFromMembers(){
+  if(!(SYNC.info&&SYNC.state==='online'&&canCommand()))return;
+  const real=SYNC.members.filter(m=>m.name&&m.name.trim());if(!real.length)return;
+  let changed=false;
+  if(S.roster.some(r=>!r.name.trim())){S.roster=S.roster.filter(r=>r.name.trim());changed=true;}
+  real.forEach(m=>{
+    const role=m.hq==='member'?(m.role&&m.role!=='Incident Commander'?m.role:'Analyst'):m.hq;
+    const r=S.roster.find(x=>x.name.trim().toLowerCase()===m.name.trim().toLowerCase()&&(x.call||'')===(m.call||''));
+    if(r){if(r.role!==role){r.role=role;changed=true;}}
+    else{S.roster.push({name:m.name.trim(),role,call:m.call||'',task:''});changed=true;}
+  });
+  if(ensureMemberTasks())changed=true;
+  if(changed){scheduleSync();if(['declare','orders','ops'].includes(cur))softRender();}
+}
+function renameIncident(from,to){
+  if(!from||!to||from===to||from.length<5)return;
+  Object.values(S.forms).forEach(f=>Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k].includes(from))f[k]=f[k].split(from).join(to);}));
+}
+function stateValue(k){
+  const cmd=canCommand();
+  if(k==='incid')return cmd&&F('declare').id?F('declare').id:null;
+  if(k==='incident'){if(!S.hHour||!cmd)return null;const f=F('declare');return {id:f.id,sev:f.sev,ic:f.ic,reporter:f.reporter,detected:f.detected,who:f.who,what:f.what,where:f.where,when:f.when,why:f.why,hHour:S.hHour?isoD(S.hHour):null,endHour:S.endHour?isoD(S.endHour):null,phase:S.phase};}
+  if(k==='roster')return cmd?S.roster:null;
+  if(k==='tasks'){S.tasks.forEach(t=>{if(!t.id)t.id=nid('t');});return cmd||SYNC.hash.tasks?S.tasks:null;}
+  return null;
+}
+function applyState(k,v){
+  if(!v)return;
+  if(k==='incid'){renameIncident(F('declare').id,v);F('declare').id=v;S.op.inc=v;if(SYNC.info)SYNC.info.incident=v;renderBar();}
+  if(k==='incident'){const f=F('declare');['id','sev','ic','reporter','detected','who','what','where','when','why'].forEach(x=>{if(v[x]!==undefined)f[x]=v[x];});
+    S.hHour=v.hHour?new Date(v.hHour):null;S.endHour=v.endHour?new Date(v.endHour):null;S.phase=v.phase||S.phase;S.op.inc=v.id;if(S.hHour)S.done.declare=true;}
+  if(k==='roster')S.roster=JSON.parse(JSON.stringify(v));
+  if(k==='tasks'){S.tasks=JSON.parse(JSON.stringify(v));checkMyTasks();}
+  SYNC.hash[k]=JSON.stringify(stateValue(k));
+}
+function scheduleSync(ms){if(SYNC.state!=='online')return;clearTimeout(SYNC.ft);SYNC.ft=setTimeout(flush,ms??250);}
+async function flush(){
+  if(SYNC.state!=='online'||!SYNC.ws)return;
+  const out=[],blobs=[];
+  const add=(kind,obj,data)=>{const k=kind+':'+obj.id;if(SYNC.sent.has(k))return;SYNC.sent.add(k);out.push({kind,id:obj.id,data});};
+  S.log.forEach(e=>add('log',e,{...e,ts:isoD(e.ts)}));
+  S.findings.forEach(f=>{(f.artifacts||[]).forEach(a=>{if(a.mode==='file'&&S.blobs[a.sha]&&!SYNC.sent.has('blob:'+a.sha))blobs.push(a.sha);});
+    add('finding',f,{...f,ts:isoD(f.ts),eventTs:isoD(f.eventTs||f.ts),dupOf:undefined});});
+  [['hoststat',S.hoststat],['wcmsg',S.wc],['aar',S.aars],['rfi',S.rfis],['rfc',S.rfcs],['sitrep',S.sitreps],['frago',S.fragos],['backbrief',S.backbriefs],['doc',S.docs]].forEach(([k,arr])=>arr.forEach(x=>{x.id=x.id||nid(k[0]);add(k,x,{...x,ts:isoD(x.ts)});}));
+  ['incid','incident','roster','tasks'].forEach(k=>{const v=stateValue(k);if(v==null)return;const h=JSON.stringify(v);if(SYNC.hash[k]===h)return;SYNC.hash[k]=h;if(k==='incid'&&SYNC.info)SYNC.info.incident=v;out.push({kind:'state',id:k,data:{key:k,value:v}});});
+  for(let i=0;i<out.length;i+=100)sendWS({t:'push',items:out.slice(i,i+100)});
+  for(const sha of [...new Set(blobs)]){SYNC.sent.add('blob:'+sha);const b=S.blobs[sha];sendWS({t:'push',items:[{kind:'blob',id:sha,data:{sha,type:b.type,data:await b64(b)}}]});}
+}
+function softRender(){
+  const a=document.activeElement,m=document.getElementById('main');
+  if(a&&m.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){SYNC.dirty=true;renderRail();renderBar();return;}
+  SYNC.dirty=false;render();
+}
+document.getElementById('main').addEventListener('focusout',()=>setTimeout(()=>{if(!SYNC.dirty)return;const a=document.activeElement,m=document.getElementById('main');if(a&&m.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;SYNC.dirty=false;render();},150));
+function wcChanged(was,now){
+  if(!!was===!!now)return;
+  if(SYNC.info&&SYNC.info.ic)addLog('neutral',now?'White Cell (WC) connected to this HQ.':'White Cell (WC) disconnected.','White Cell');
+  if(canCommand())toast(now?'White Cell (WC) is now monitoring this HQ':'White Cell disconnected');
+}
+function renderTeam(){
+  const wb=document.getElementById('wcBadge');if(wb)wb.hidden=!(SYNC.state==='online'&&SYNC.wc>0);
+  const b=document.getElementById('teamBtn'),t=document.getElementById('teamTxt');
+  b.dataset.st=SYNC.state;
+  b.title=SYNC.info?`${SYNC.info.hq||'Field HQ'}, ${SYNC.info.incident}`:'Team session';
+  t.textContent=SYNC.state==='ended'?'Ended':SYNC.state==='online'?`${SYNC.info&&SYNC.info.hq&&SYNC.info.hq!=='cbp-hq'?SYNC.info.hq+' · ':'Team '}${SYNC.members.length}`:SYNC.state==='connecting'?'Joining':SYNC.state==='offline'?'Reconnecting':SYNC.state==='denied'?'Refused':'Solo';
+  if(document.getElementById('teamDlg').open)fillTeam();
+}
+function fillTeam(){
+  const body=document.getElementById('teamBody'),btns=document.getElementById('teamBtns');
+  document.getElementById('teamDlg').classList.toggle('wide',!!(SYNC.info&&SYNC.info.ic&&SYNC.state==='online'));
+  if(SYNC.info&&SYNC.info.ic&&SYNC.state==='online')return fillIcPanel(body,btns);
+  if(!SYNC.info){
+    body.innerHTML=`<p>Team mode works when the app is opened from an IC laptop running the Field HQ server: scan the QR code shown on the IC's screen.</p><p class="muted">Without it, use Send to IC and Consolidate logs.</p>`;
+    btns.innerHTML=`<button class="btn" data-closeteam>Close</button>`;return;}
+  const st={ended:'Session ended by the IC',online:'Connected',connecting:'Joining',offline:'Connection lost, retrying',denied:'Access refused',solo:'Not connected',left:'Not connected'}[SYNC.state];
+  body.innerHTML=`<p style="margin:0 0 2px;font:700 18px var(--f-head)">${esc(SYNC.info.hq||'Field HQ')}</p><p class="muted" style="margin:0 0 10px">Incident <b>${esc(SYNC.info.incident)}</b> on ${esc(location.host)}. Check this is your team's HQ before entering the code.</p>
+   <p style="margin:0 0 8px"><b>${st}</b>${SYNC.state==='online'?`, ${SYNC.members.length} on the net`:''}</p>
+   ${SYNC.state==='online'?`<ul class="mlist">${SYNC.members.map(m=>`<li><b>${esc(m.call||'')}</b> ${esc(m.name||'Unnamed')} <span class="muted">${esc(m.role||'')}</span></li>`).join('')}</ul>`:
+    `<div class="fld" style="margin-top:10px"><label for="teamCode">Access code</label><input id="teamCode" value="${esc(SYNC.code)}" placeholder="RAVEN-4721" autocomplete="off" style="font-family:var(--f-mono);font-size:20px;letter-spacing:.08em;text-transform:uppercase"></div>
+     ${S.op.name?'':`<div class="row2"><div class="fld"><label for="teamName">Your name</label><input id="teamName" placeholder="Rank, name"></div><div class="fld"><label for="teamCall">Callsign</label><input id="teamCall" placeholder="e.g. 11"></div></div>`}`}
+   <p class="muted" style="margin-top:12px">Entries are relayed through the IC laptop and kept in memory only. Your device keeps a full copy; if the HQ restarts, it is reseeded automatically.</p>`;
+  btns.innerHTML=SYNC.state==='online'?`<button class="btn" id="teamLeave">Leave</button><button class="btn primary" data-closeteam>Close</button>`:
+    `<button class="btn" data-closeteam>Close</button><button class="btn primary" id="teamJoin">Join</button>`;
+}
+function fillIcPanel(body,btns){
+  const ic=SYNC.info.ic,q=ic.addresses.find(x=>x.qr),pf=SYNC.preflight;
+  const issues=pf?pf.issues:[];const errs=issues.filter(i=>i.level==='error');
+  body.innerHTML=`<div class="icp">
+   <div class="icp-qr">${q?`<img src="${q.qr}" alt="Join QR code">`:''}<small>Phones: scan</small></div>
+   <div class="icp-main">
+    <p class="icp-team">${esc(ic.team||'Field HQ')}</p><p class="muted" style="margin:0 0 10px">Incident ${esc(SYNC.info.incident)}</p>
+    <span class="lbl">Computers: open</span><div class="icp-addr">${ic.addresses.map(x=>`<button class="icp-a" data-copyjoin="${esc(x.join)}" title="Copy join link (contains the code)">${esc(x.label)}<small>${x.note==='name'?'name':esc(x.note)}</small></button>`).join('')}</div>
+    <span class="lbl" style="margin-top:10px">Access code</span><div class="icp-code">${esc(ic.code)}</div>
+    ${ic.fingerprint?`<p class="muted" style="margin:6px 0 0;font-size:13px">Certificate ${esc(ic.fingerprint.slice(0,23))}…</p>`:''}
+    <p class="muted" style="margin:4px 0 0;font-size:13px">Click an address to copy a join link for Signal or Teams.</p>
+   </div></div>
+   <div class="icp-check ${errs.length?'bad':pf?'ok':''}">${!pf?'Checking network…':errs.length?`<b>Analysts may not be able to connect</b>${errs.map(i=>`<div>${esc(i.text)}</div>`).join('')}<button class="btn sm danger" id="pfFix">Fix it</button>`:
+     `<b>Network ready</b>${issues.map(i=>`<div class="muted">${esc(i.text)}</div>`).join('')}`}</div>
+   ${SYNC.wc?'<p class="muted" style="margin:10px 0 0"><b style="color:var(--unknown)">White Cell connected</b>: it sees your incident status and the RFIs and RFCs you address to WC.</p>':''}
+   <span class="lbl" style="margin-top:12px">On the net (${SYNC.members.length})</span>
+   <ul class="mlist">${SYNC.members.map(m=>`<li><b>${esc(m.call||'')}</b> ${esc(m.name||'Unnamed')} ${['IC','2IC','Intel'].includes(m.hq)?`<span class="rtag">${m.hq}</span>`:''} <span class="muted">${esc(m.role||'')}${m.ip&&!/^(127\.|::1)/.test(m.ip)?' · '+esc(m.ip):''}</span>${m.hq!=='IC'?`<span style="float:right;display:flex;gap:4px"><button class="btn sm" data-role2ic="${esc(m.client)}" data-to="${m.hq==='2IC'?'member':'2IC'}">${m.hq==='2IC'?'Remove 2IC':'Make 2IC'}</button><button class="btn sm" data-role2ic="${esc(m.client)}" data-to="${m.hq==='Intel'?'member':'Intel'}">${m.hq==='Intel'?'Remove Intel':'Make Intel'}</button></span>`:''}</li>`).join('')}</ul>
+   ${SYNC.endAt?`<div class="icp-check bad"><b>Session ends in <span id="endLeft">${Math.max(0,Math.round((SYNC.endAt-Date.now())/1000))}</span> s</b><div>Export the PowerPoint now if you need it.</div><button class="btn sm" id="endCancel">Cancel</button></div>`:''}`;
+  btns.innerHTML=`<a class="btn" href="hq" target="_blank" style="text-decoration:none">Projector view</a><span class="spacer"></span>${SYNC.endAt?'':'<button class="btn danger" id="endSession">End session</button>'}<button class="btn primary" data-closeteam>Close</button>`;
+  if(!pf&&!SYNC.pfLoading){SYNC.pfLoading=true;fetch('hq/preflight',{cache:'no-store'}).then(r=>r.json()).then(j=>{SYNC.preflight=j}).catch(()=>{SYNC.preflight={issues:[]}}).finally(()=>{SYNC.pfLoading=false;if(document.getElementById('teamDlg').open)fillTeam();});}
+}
+function endBanner(ended){
+  let el=document.getElementById('endBar');
+  if(!el){el=document.createElement('div');el.id='endBar';document.body.appendChild(el);}
+  clearInterval(SYNC.endTick);
+  if(ended){el.className='show';el.innerHTML='<b>The HQ ended the session.</b> Your copy stays on this device until you close the page: export or copy what you need now.';return;}
+  if(!SYNC.endAt){el.className='';return;}
+  const draw=()=>{const s=Math.max(0,Math.round((SYNC.endAt-Date.now())/1000));el.className='show';
+    el.innerHTML=`<b>HQ closing in ${s} s.</b> Send your log to the IC or export what you need now.`;const l=document.getElementById('endLeft');if(l)l.textContent=s;};
+  draw();SYNC.endTick=setInterval(draw,1000);
+}
+async function hqPost(path){const r=await fetch(path,{method:'POST',headers:{'x-cbp':'1'}});return r.json();}
+function openTeam(){const d=document.getElementById('teamDlg');fillTeam();d.showModal?d.showModal():d.setAttribute('open','');}
+document.getElementById('teamDlg').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='teamCode'||e.target.id==='teamName'||e.target.id==='teamCall')){e.preventDefault();document.getElementById('teamJoin')?.click();}});
+document.getElementById('teamDlg').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.closeteam!==undefined){document.getElementById('teamDlg').close();return;}
+  if(b.id==='teamLeave'){teamLeave();document.getElementById('teamDlg').close();return;}
+  if(b.dataset.copyjoin){copy(b.dataset.copyjoin,'Join link copied. Send it over your out of band channel.');return;}
+  if(b.id==='pfFix'){b.disabled=true;b.textContent='Waiting for administrator approval…';hqPost('hq/fix').then(r=>{SYNC.preflight=r.preflight||SYNC.preflight;toast(r.text);fillTeam();}).catch(()=>{toast('Fix failed');fillTeam();});return;}
+  if(b.id==='endSession'){if(!confirm('End the session for the whole section? Everyone gets 60 seconds to send or export, then the HQ closes and its memory is cleared.'))return;hqPost('hq/end?s=60').then(()=>fillTeam());return;}
+  if(b.dataset.role2ic){hqPost(`hq/role?client=${encodeURIComponent(b.dataset.role2ic)}&role=${b.dataset.to}`).then(()=>setTimeout(fillTeam,200));return;}
+  if(b.id==='endCancel'){hqPost('hq/cancel-end').then(()=>fillTeam());return;}
+  if(b.id==='teamJoin'){const c=(document.getElementById('teamCode').value||'').trim().toUpperCase();if(!c){toast('Enter the access code');return;}
+    const nm=document.getElementById('teamName'),cl=document.getElementById('teamCall');
+    if(nm&&nm.value.trim()){S.op.name=nm.value.trim();S.op.call=(cl.value||'').trim();if(!F('findings').analyst)F('findings').analyst=S.op.name;renderBar();}
+    SYNC.code=c;document.getElementById('teamDlg').close();if(!S.op.name){openOp();toast('Enter your name to join');return;}teamConnect();}
+});
+
+/* ============ Findings journal PDF ============ */
+async function loadPdfLib(){
+  if(window.PDFLib)return;
+  if(SYNC.info){try{await loadScript('vendor/pdf-lib.min.js')}catch(e){}}
+  if(!window.PDFLib){try{await loadScript('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js')}catch(e){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js')}}
+}
+const pdfSafe=s=>String(s??'').replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/\u00B7/g,'-').replace(/\t/g,'  ').replace(/[^\n\x20-\x7E\xA0-\xFF]/g,'?');
+async function imageForPdf(blob){
+  const t=blob.type||'';
+  if(t==='image/png'||t==='image/jpeg')return {kind:t==='image/png'?'png':'jpg',bytes:new Uint8Array(await blob.arrayBuffer())};
+  if(!/^image\//.test(t))return null;
+  const url=URL.createObjectURL(blob);
+  try{const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+    const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);
+    const b=await new Promise(r=>c.toBlob(r,'image/png'));return {kind:'png',bytes:new Uint8Array(await b.arrayBuffer())};}
+  catch(e){return null}finally{URL.revokeObjectURL(url)}
+}
+async function findingsPdf(btn){
+  const list=S.findings.filter(f=>!f.dupOf);
+  if(!list.length){toast('No findings to export yet');return;}
+  const label=btn.textContent;btn.disabled=true;btn.textContent='Building PDF…';
+  try{
+    await loadPdfLib();
+    const {PDFDocument,StandardFonts,rgb}=PDFLib;
+    const doc=await PDFDocument.create();
+    doc.setTitle(`${incId()} findings journal`);doc.setCreator('Cyber Battle Pro');doc.setCreationDate(new Date());
+    const font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold),mono=await doc.embedFont(StandardFonts.Courier);
+    const W=612,H=792,M=50,ink=rgb(.09,.13,.17),muted=rgb(.36,.4,.45),red=rgb(.71,.14,.09),line=rgb(.82,.85,.87);
+    let page,y;
+    const newPage=()=>{page=doc.addPage([W,H]);y=H-M;page.drawText(pdfSafe(`${incId()}  Findings journal`),{x:M,y:H-30,size:8,font,color:muted});page.drawText(`Page ${doc.getPageCount()}`,{x:W-M-40,y:H-30,size:8,font,color:muted});};
+    const wrap=(text,f,size,width)=>{const out=[];pdfSafe(text).split('\n').forEach(par=>{let ln='';par.split(/(\s+)/).forEach(w=>{const t=ln+w;if(f.widthOfTextAtSize(t,size)<=width||!ln.trim()){
+        if(f.widthOfTextAtSize(t,size)>width){let chunk='';for(const ch of t){if(f.widthOfTextAtSize(chunk+ch,size)>width){out.push(chunk);chunk='';}chunk+=ch;}ln=chunk;}else ln=t;}else{out.push(ln.trimEnd());ln=w.trimStart();}});out.push(ln.trimEnd());});return out;};
+    const write=(text,{f=font,size=10,color=ink,x=M,width=W-2*M,gap=3}={})=>{wrap(text,f,size,width).forEach(l=>{if(y<M+size){newPage();}page.drawText(l,{x,y:y-size,size,font:f,color});y-=size+gap;});};
+    const kv=(k,v)=>{if(!v||!String(v).trim())return;const lines=wrap(v,font,10,W-2*M-150);if(y<M+12*Math.min(lines.length,3))newPage();page.drawText(pdfSafe(k),{x:M,y:y-10,size:9,font:bold,color:muted});
+      lines.forEach((l,i)=>{if(y<M+10){newPage();}page.drawText(l,{x:M+150,y:y-10,size:10,font,color:ink});y-=13;});y-=2;};
+    const rule=()=>{if(y<M+20)newPage();page.drawLine({start:{x:M,y:y-4},end:{x:W-M,y:y-4},thickness:.6,color:line});y-=14;};
+    // Cover
+    newPage();
+    write('FINDINGS JOURNAL',{f:bold,size:24});y-=4;
+    write(`Incident ${incId()}${SYNC.info&&SYNC.info.hq?'   '+SYNC.info.hq:''}   ${sevKey()}`,{size:12,color:muted});
+    write(`Generated ${ldtg()} (${dtg()} Z) by ${me()||'operator'}`,{size:10,color:muted});
+    write(`${list.length} finding${list.length>1?'s':''}. Attached files are embedded in this PDF at full size (open the attachments panel of your PDF reader).`,{size:10,color:muted});
+    y-=10;rule();
+    const images=[],files=[];
+    list.forEach((x,n)=>{
+      if(y<M+120)newPage();
+      write(`Finding ${n+1}: ${x.type||''}`,{f:bold,size:14,color:red});
+      write(`${x.found||ldtg(new Date(x.ts))}   ${x.by}${x.call?' ('+x.call+')':''}`,{size:9,color:muted});y-=4;
+      kv('Zulu time of event',x.event);kv('Indicator of attack',x.ioa);kv('Affected machine(s)',x.affected);kv('Remote machine(s)',x.remote);
+      kv('MITRE ATT&CK',(x.attack||[]).map(attackLabel).join('\n'));kv('Malicious executable(s)',x.exe);kv('Compromised user(s)',x.users);kv('Impact',x.impact);kv('Assistance required',x.assist);kv('Additional notes',x.notes);
+      (x.artifacts||[]).forEach((a,k)=>{
+        const ref=`F${n+1}-A${k+1}`;
+        write(`Artifact ${ref}: ${a.name}${a.size?' ('+fmtSize(a.size)+')':''}, ${a.mode==='file'?'attached':'reference only'}`,{f:bold,size:9,x:M+10,width:W-2*M-10});
+        write(`SHA-256 ${a.sha||'not recorded'}`,{f:mono,size:7.5,x:M+10,width:W-2*M-10,color:muted});
+        if(a.loc)write(`Stored at ${a.loc}`,{size:8.5,x:M+10,width:W-2*M-10,color:muted});
+        if(a.mode==='file'&&S.blobs[a.sha]){files.push({a,ref});if(/^image\//.test(a.mime||''))images.push({a,ref,x});}
+        else if(a.mode==='file')write('File content not available on this device.',{size:8.5,x:M+10,color:red});
+      });
+      y-=6;rule();
+    });
+    // Images: one page each, original pixels embedded
+    for(const im of images){
+      const data=await imageForPdf(S.blobs[im.a.sha]);if(!data)continue;
+      const img=data.kind==='png'?await doc.embedPng(data.bytes):await doc.embedJpg(data.bytes);
+      newPage();write(`Artifact ${im.ref}: ${im.a.name}`,{f:bold,size:11});write(`From finding by ${im.x.by}, ${im.x.found||''}. SHA-256 ${im.a.sha}`,{size:8,color:muted});
+      const bw=W-2*M,bh=y-M,r=Math.min(bw/img.width,bh/img.height,1e9);const w=img.width*r,h=img.height*r;
+      page.drawImage(img,{x:M+(bw-w)/2,y:y-h,width:w,height:h});
+      page.drawText(pdfSafe(`Original ${img.width} x ${img.height} px, embedded at full resolution`),{x:M,y:M-20,size:7.5,font,color:muted});
+    }
+    // Original files attached at full size
+    for(const f of files){
+      const b=S.blobs[f.a.sha];
+      await doc.attach(new Uint8Array(await b.arrayBuffer()),`${f.ref}_${f.a.name}`.replace(/[\\/:*?"<>|]+/g,'_'),{mimeType:b.type||'application/octet-stream',description:`${f.a.name}, SHA-256 ${f.a.sha}`,creationDate:new Date(f.a.ts),modificationDate:new Date(f.a.ts)});
+    }
+    const bytes=await doc.save();
+    download(new Blob([bytes],{type:'application/pdf'}),`${incId()}_findings_journal.pdf`);
+    addLog('command',`Findings journal exported to PDF: ${list.length} findings, ${files.length} attached files.`,'Findings');
+    toast('PDF downloaded');
+  }catch(err){console.error(err);toast('PDF export needs a connection the first time');}
+  btn.disabled=false;btn.textContent=label;
+}
+
+/* ============ Orders to PDF (formatted document) ============ */
+async function orderPdf(stepId,btn){
+  const step=STEP(stepId),f=F(stepId);
+  const label=btn.textContent;btn.disabled=true;btn.textContent='Building PDF…';
+  try{
+    await loadPdfLib();
+    const {PDFDocument,StandardFonts,rgb}=PDFLib;
+    const doc=await PDFDocument.create();
+    const title={wngo:'WARNING ORDER',bb:'BACK BRIEF',orders:'OPERATION ORDER'}[stepId]||step.title.toUpperCase();
+    doc.setTitle(`${incId()} ${title}`);doc.setCreator('Cyber Battle Pro');
+    const font=await doc.embedFont(StandardFonts.TimesRoman),bold=await doc.embedFont(StandardFonts.TimesRomanBold),ital=await doc.embedFont(StandardFonts.TimesRomanItalic);
+    const W=612,H=792,M=72,ink=rgb(0,0,0),muted=rgb(.3,.3,.3);
+    let page,y;
+    const pages=[];
+    const newPage=()=>{page=doc.addPage([W,H]);pages.push(page);y=H-M;};
+    const wrap=(text,f,size,width)=>{const out=[];pdfSafe(text).split('\n').forEach(par=>{let ln='';par.split(/(\s+)/).forEach(w=>{const t=ln+w;if(f.widthOfTextAtSize(t,size)<=width||!ln.trim()){ln=t;}else{out.push(ln.trimEnd());ln=w.trimStart();}});out.push(ln.trimEnd());});return out;};
+    const para=(text,{f=font,size=11,x=M,width=W-2*M-(x-M),gap=3,color=ink}={})=>{wrap(text,f,size,width).forEach(l=>{if(y<M+size+20)newPage();page.drawText(l,{x,y:y-size,size,font:f,color});y-=size+gap;});};
+    const labelled=(lab,text,x)=>{ // "a. Enemy. text" with hanging indent
+      const lw=bold.widthOfTextAtSize(pdfSafe(lab),11)+6;const lines=wrap(text||'',font,11,W-M-x-lw);
+      if(y<M+30)newPage();page.drawText(pdfSafe(lab),{x,y:y-11,size:11,font:bold,color:ink});
+      lines.forEach((l,i)=>{if(i&&y<M+30){newPage();}page.drawText(l,{x:x+lw,y:y-11,size:11,font,color:ink});y-=14;});y-=4;};
+    newPage();
+    // Heading block
+    const tw=bold.widthOfTextAtSize(title,16);page.drawText(title,{x:(W-tw)/2,y:y-16,size:16,font:bold});y-=30;
+    const issuer=stepId==='orders'?(f.issuer||F('declare').ic||''):(F('declare').ic||me()||'');
+    const now=new Date();
+    [['Incident',incId()+(SYNC.info&&SYNC.info.hq?'   '+SYNC.info.hq:'')],['DTG',`${dtg(now)} Z (${ldtg(now)})`],[stepId==='bb'?'From':'Issued by',issuer],...(stepId==='bb'?[['To',f.to||'Company commander']]:[]),['Severity',sevKey()]].forEach(([k,v])=>{
+      page.drawText(pdfSafe(k+':'),{x:M,y:y-11,size:11,font:bold});page.drawText(pdfSafe(v||''),{x:M+90,y:y-11,size:11,font});y-=15;});
+    y-=6;page.drawLine({start:{x:M,y},end:{x:W-M,y},thickness:1,color:ink});y-=16;
+    // Body: numbered paragraphs
+    const letters='abcdefghijklmnopqrstuvwxyz';
+    const fieldText=fd=>{
+      if(fd.type==='list'){const rows=(f[fd.k]||[]).filter(r=>fd.cols.some(c=>(r[c.f]||'').trim()));return rows.map((r,i)=>`(${i+1}) ${fd.prefix?fd.prefix+' '+(i+1)+': ':''}${fd.cols.map(c=>r[c.f]).filter(Boolean).join(fd.cols.length>2?', ':': ')}`).join('\n');}
+      if(fd.type==='custom'&&fd.c==='tasks')return phaseTasks().map((x,i)=>`(${i+1}) ${x.t.who||'Section'}: ${x.t.task}${x.t.due?' NLT '+x.t.due:''}`).join('\n');
+      return String(f[fd.k]??'');
+    };
+    let n=0;
+    const sections=step.sections.filter(sec=>sec.h!=='Header');
+    const single=sections.length===1&&!sections[0].h;
+    sections.forEach(sec=>{
+      const fields=sec.fields.flatMap(fd=>fd.row?fd.row:[fd]).filter(fd=>!(stepId==='bb'&&fd.k==='to'));
+      if(single){
+        fields.forEach(fd=>{if(fd.type==='marker')return;const t=fieldText(fd);if(!t.trim())return;n++;
+          para(`${n}.  ${fd.label.replace(/\s*\(.*\)$/,'').toUpperCase()}`,{f:bold});y-=2;para(t,{x:M+24});y-=8;});
+        return;
+      }
+      n++;para(`${n}.  ${sec.h.toUpperCase()}`,{f:bold,size:12});y-=4;
+      let li=0;
+      fields.forEach(fd=>{
+        if(fd.type==='marker'){y-=4;const t=fd.label.toUpperCase(),w2=ital.widthOfTextAtSize(t,11);if(y<M+30)newPage();page.drawText(t,{x:(W-w2)/2,y:y-11,size:11,font:ital});y-=22;return;}
+        if(fd.type==='custom'&&fd.c!=='tasks')return;
+        const t=fieldText(fd);if(!t.trim())return;
+        const lab=fd.type==='custom'?'Tasks':fd.label.replace(/^\d+\.\s*/,'').replace(/\s*\(.*\)$/,'');
+        if(fields.length===1&&fd.type!=='list'){para(t,{x:M+24});y-=6;return;}
+        const l=`${letters[li++]}.  ${lab}.`;
+        if(fd.type==='list'||fd.type==='custom'||t.includes('\n')){para(l,{f:bold,x:M+24});para(t,{x:M+48});y-=4;}
+        else labelled(l,t,M+24);
+      });
+      y-=8;
+    });
+    if(stepId!=='bb'){y-=6;para('ACKNOWLEDGE.',{f:bold});}
+    y-=30;if(y<M+60)newPage();
+    page.drawLine({start:{x:W-M-200,y},end:{x:W-M,y},thickness:.6,color:ink});
+    page.drawText(pdfSafe(issuer||''),{x:W-M-200,y:y-14,size:10,font});
+    page.drawText(pdfSafe(stepId==='bb'?'Section commander':'Incident Commander'),{x:W-M-200,y:y-27,size:9,font:ital,color:muted});
+    pages.forEach((pg,i)=>{const t=pdfSafe(`${incId()}  ${title}  ·  Page ${i+1} of ${pages.length}`);const w2=font.widthOfTextAtSize(t,8);pg.drawText(t,{x:(W-w2)/2,y:36,size:8,font,color:muted});});
+    const bytes=await doc.save();
+    download(new Blob([bytes],{type:'application/pdf'}),`${incId()}_${title.replace(/\s+/g,'_').toLowerCase()}.pdf`);
+    toast('PDF downloaded');
+  }catch(err){console.error(err);toast('PDF export needs a connection the first time');}
+  btn.disabled=false;btn.textContent=label;
+}
+
+/* ============ PowerPoint export ============ */
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);})}
+async function exportPptx(btn){
+  if(!S.log.length&&!S.findings.length){toast('Nothing to export yet');return;}
+  const label=btn.textContent;btn.disabled=true;btn.textContent='Building…';
+  try{
+    if(!window.PptxGenJS&&SYNC.info){try{await loadScript('vendor/pptxgen.bundle.js')}catch(e){}}
+    if(!window.PptxGenJS){try{await loadScript('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js')}catch(e){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js')}}
+    const snap=snapshot();snap.images=await deckImages();
+    const pptx=new PptxGenJS();buildDeck(pptx,snap);
+    await pptx.writeFile({fileName:`${incId()}_session.pptx`});toast('PowerPoint downloaded');
+  }catch(err){console.error(err);toast('Export needs a connection the first time');}
+  btn.disabled=false;btn.textContent=label;
+}
+async function deckImages(){
+  const out=[];
+  for(const f of S.findings.filter(x=>!x.dupOf))for(const a of (f.artifacts||[])){
+    if(out.length>=30)break;
+    if(a.mode!=='file'||!/^image\/(png|jpeg|gif)/.test(a.mime||'')||!S.blobs[a.sha])continue;
+    const data=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(S.blobs[a.sha]);});
+    const dim=await new Promise(r=>{const im=new Image();im.onload=()=>r([im.naturalWidth,im.naturalHeight]);im.onerror=()=>r([4,3]);im.src=data;});
+    out.push({data,w:dim[0],h:dim[1],caption:`${a.name}, ${f.by}, event ${f.event}. SHA-256 ${a.sha}`});
+  }
+  return out;
+}
+function snapshot(){
+  const d=F('declare');
+  return {id:incId(),dec:{...d,sevText:d.sev?`${d.sev}: ${SEVS[d.sev].criteria}`:''},orders:F('orders'),aar:S.forms.aar||null,stand:S.forms.stand||null,
+    declared:S.hHour?stamp(S.hHour):'',stood:S.endHour?stamp(S.endHour):'',tasks:S.tasks,sitreps:S.sitreps,fragos:S.fragos,
+    hosts:hostBoard().map(x=>({host:x.host,status:x.status,first:ldtg(new Date(x.first)),n:x.findings.length,last:x.last?`${x.last.status} by ${x.last.by}, ${ldtg(new Date(x.last.ts))}`:'From findings'})),
+    aarProposals:S.aars.filter(r=>r.kind==='proposal').map(r=>({by:r.by+(r.call?' ('+r.call+')':''),time:ldtg(new Date(r.ts)),sustain:r.sustain,improve:Array.isArray(r.improve)?r.improve.map(x=>x.action).join('\n'):(r.improve||'')})),
+    findings:S.findings.filter(f=>!f.dupOf).map(f=>({found:f.found||'',event:f.event,by:f.by,type:f.type,ioa:f.ioa+((f.attack||[]).length?'\n'+f.attack.join(', '):''),affected:f.affected,remote:f.remote,exe:f.exe,users:f.users,impact:f.impact,assist:f.assist})),
+    rfis:S.rfis.map(r=>({unit:r.unit,time:r.time,loc:r.loc,details:r.details,reason:r.reason,by:r.by})),
+    rfcs:S.rfcs.map(r=>({title:r.title,asset:r.asset,just:r.just,down:r.down,start:r.imm?'Immediately':r.start,end:r.end,impl:r.impl,backout:r.backout,risk:r.risk,test:r.test,author:r.author})),
+    evidence:S.findings.filter(f=>!f.dupOf).flatMap(f=>(f.artifacts||[]).map(a=>({name:a.name,mode:a.mode==='file'?'Attached':'Reference',sha:a.sha||'',by:a.by||f.by,when:dtg(new Date(a.ts)),loc:a.loc||'',size:a.size?fmtSize(a.size):''}))),
+    images:[],
+    iocs:iocTable().map(x=>({type:x.type,value:defang(x.value,x.type),by:[...x.by].join(', '),first:dtg(x.first),count:x.count})),
+    log:S.log.filter(e=>!e.dupOf).map(e=>({dtg:dtg(e.ts),loc:local(e.ts),h:hplus(e.ts),by:e.by||'',type:e.type,text:e.text}))};
+}
+/* BUILD_DECK_START */
+function buildDeck(pptx,d){
+  const INK='16202B',MUTED='5B6774',LINE='D2D8DF',BLUE='1D5FA8',RED='B42318',GREEN='2D7A4B',AMBER='A86B0C',HEAD='F1F4F7';
+  const TYPE={command:INK,friendly:BLUE,hostile:RED,neutral:GREEN,unknown:AMBER};
+  const FONT='Calibri';pptx.layout='LAYOUT_WIDE';pptx.title=d.id+' session report';const W=13.33;
+  const H=t=>({text:t,options:{bold:true,fill:{color:HEAD}}});
+  function slide(title,sub){
+    const s=pptx.addSlide();s.background={color:'FFFFFF'};
+    s.addShape(pptx.ShapeType.rect,{x:0,y:0,w:W,h:0.08,fill:{color:BLUE},line:{color:BLUE}});
+    s.addText(title,{x:0.5,y:0.3,w:W-1,h:0.6,fontFace:FONT,fontSize:28,bold:true,color:INK,margin:0});
+    if(sub)s.addText(sub,{x:0.5,y:0.88,w:W-1,h:0.35,fontFace:FONT,fontSize:13,color:MUTED,margin:0});
+    s.addText(d.id,{x:0.5,y:7.05,w:6,h:0.3,fontFace:FONT,fontSize:10,color:MUTED,margin:0});
+    return s;
+  }
+  const tblOpt=(colW,fs)=>({x:0.5,y:1.45,w:W-1,colW,fontFace:FONT,fontSize:fs||13,color:INK,border:{type:'solid',color:LINE,pt:0.75},valign:'top',margin:0.07});
+  function kv(s,rows){s.addTable(rows.filter(r=>r[1]!==undefined).map(([k,v])=>[{text:k,options:{bold:true,fill:{color:HEAD}}},String(v||'')]),tblOpt([2.4,W-3.4]));}
+  const t=pptx.addSlide();t.background={color:INK};
+  t.addText('Incident '+d.id,{x:0.7,y:2.2,w:W-1.4,h:1,fontFace:FONT,fontSize:44,bold:true,color:'FFFFFF',margin:0});
+  t.addText((d.dec.sev||'')+'   IC: '+(d.dec.ic||''),{x:0.7,y:3.25,w:W-1.4,h:0.5,fontFace:FONT,fontSize:20,color:'C9D3DD',margin:0});
+  t.addText((d.declared?'Declared '+d.declared:'')+(d.stood?'   Stood down '+d.stood:''),{x:0.7,y:3.8,w:W-1.4,h:0.4,fontFace:FONT,fontSize:14,color:'95A2AF',margin:0});
+  if(d.declared) kv(slide('Declaration','Severity and 5W at H hour'),[['Severity',d.dec.sevText],['Who',d.dec.who],['What',d.dec.what],['Where',d.dec.where],['When',d.dec.when],['Why',d.dec.why],['Detection source',d.dec.reporter]]);
+  if(d.orders.mission) kv(slide('Mission and intent','Orders as issued'),[['2UP intent',d.orders.up2],['1UP intent',d.orders.up1],['Mission',d.orders.mission],['My intent',d.orders.intent],['Main effort',d.orders.me],['End state',d.orders.end]]);
+  if(d.tasks.length){const s=slide('Tasks','Status at export');const col={Done:GREEN,Blocked:RED,'In progress':BLUE,Assigned:MUTED};
+    s.addTable([[H('Phase'),H('Team / individual'),H('Task'),H('Deadline'),H('Status')],...d.tasks.map(x=>[x.phase||'Identification',x.who||'Section',x.task,x.due||'',{text:x.status,options:{bold:true,color:col[x.status]||INK}}])],{...tblOpt([1.6,2.2,W-8.6,1.6,1.6]),autoPage:true,autoPageRepeatHeader:true});}
+  for(let i=0;i<d.findings.length;i+=4){const s=slide('Findings',`Analyst journal ${i+1} to ${Math.min(i+4,d.findings.length)} of ${d.findings.length}`);
+    s.addTable([[H('Found'),H('Analyst'),H('Type'),H('Indicator of attack'),H('Affected'),H('Remote'),H('Impact')],...d.findings.slice(i,i+4).map(f=>[{text:(f.found||'')+(f.event?'\nEvent '+f.event+' Z':''),options:{fontFace:'Consolas',fontSize:9}},f.by,f.type,f.ioa,f.affected,f.remote,f.impact])],tblOpt([1.5,1.4,1.4,2.6,1.6,1.6,2.23],11));}
+  for(let i=0;i<(d.hosts||[]).length;i+=12){const s=slide('Host board',`${d.hosts.length} hosts`);const col={Compromised:RED,Isolated:AMBER,Cleaned:BLUE,Restored:GREEN};
+    s.addTable([[H('Host'),H('Status'),H('First seen'),H('Findings'),H('Last change')],...d.hosts.slice(i,i+12).map(x=>[{text:x.host,options:{fontFace:'Consolas',fontSize:11}},{text:x.status,options:{bold:true,color:col[x.status]||INK}},x.first,String(x.n),x.last])],tblOpt([2.6,1.8,2.4,1.1,4.43],12));}
+  for(let i=0;i<d.iocs.length;i+=14){const s=slide('Indicators of compromise',`Deduplicated, ${d.iocs.length} total`);
+    s.addTable([[H('Type'),H('Value'),H('Reported by'),H('First seen'),H('Count')],...d.iocs.slice(i,i+14).map(x=>[x.type,{text:x.value,options:{fontFace:'Consolas',fontSize:11}},x.by,{text:x.first,options:{fontFace:'Consolas',fontSize:11}},String(x.count)])],tblOpt([1.2,W-7.6,2.8,1.8,0.8],12));}
+  for(let i=0;i<(d.evidence||[]).length;i+=10){const s=slide('Evidence register','Annex F chain of custody');
+    s.addTable([[H('Artifact'),H('Mode'),H('SHA-256'),H('Collected by'),H('Time (Z)'),H('Stored at')],...d.evidence.slice(i,i+10).map(e=>[e.name+(e.size?' ('+e.size+')':''),e.mode,{text:e.sha||'not recorded',options:{fontFace:'Consolas',fontSize:8}},e.by,{text:e.when,options:{fontFace:'Consolas',fontSize:10}},e.loc])],tblOpt([2.4,1.1,3.6,1.6,1.5,2.13],11));}
+  (d.images||[]).forEach(im=>{const s=slide('Evidence',im.caption.length>140?im.caption.slice(0,140)+'…':im.caption);
+    const bw=W-1,bh=5.4,r=Math.min(bw/im.w,bh/im.h),w=im.w*r,h=im.h*r;s.addImage({data:im.data,x:0.5+(bw-w)/2,y:1.45,w,h});});
+  const per=11;for(let i=0;i<d.log.length;i+=per){
+    const s=slide('Timeline',`Entries ${i+1} to ${Math.min(i+per,d.log.length)} of ${d.log.length}`);
+    s.addTable([[H('DTG (Z)'),H('Local'),H('H+'),H('By'),H('Entry')],
+      ...d.log.slice(i,i+per).map(e=>[{text:e.dtg,options:{fontFace:'Consolas',fontSize:10}},{text:e.loc,options:{fontFace:'Consolas',fontSize:10}},{text:e.h,options:{fontFace:'Consolas',fontSize:10}},{text:e.by,options:{fontSize:11}},{text:e.text.replace(/\n/g,'  '),options:{color:TYPE[e.type]||INK,bold:e.type==='command'}}])],
+      {...tblOpt([1.6,1.1,0.9,1.5,W-6.1],11),margin:0.05});
+  }
+  d.sitreps.forEach((r,i)=>kv(slide('SITREP '+(i+1),r.prec+'  to '+r.to),[['Status',r.status],['Since last SITREP',r.since],['Current actions',r.now],['Blockers',r.block],['Next SITREP due',r.next]]));
+  (d.rfis||[]).forEach((r,i)=>kv(slide('RFI '+(i+1),r.reason),[['Unit',r.unit],['Time of request',r.time],['Location / Network / Host',r.loc],['Request details',r.details],['Reason',r.reason],['Receive info by',r.by]]));
+  (d.rfcs||[]).forEach((r,i)=>kv(slide('Request for change '+(i+1),r.title),[['Targeted asset',r.asset],['Justification',r.just],['Requires down time',r.down],['Planned start',r.start],['Planned end',r.end],['Implementation plan',r.impl],['Backout plan',r.backout],['Risk and impact',r.risk],['Test plan',r.test]]));
+  d.fragos.forEach((r,i)=>kv(slide('FRAGO '+(i+1),'Changes only'),[['Reason',r.why],['Situation',r.sit],['Mission',r.mission],['Tasks',r.tasks],['Coordinating',r.coord]]));
+  if(d.stand&&d.stood) kv(slide('Stand down'),[['End state',d.stand.end],['Restored',d.stand.restored],['Evidence',d.stand.evidence],['Residual risk',d.stand.risk],['Handed over',d.stand.handover]]);
+  for(let i=0;i<(d.aarProposals||[]).length;i+=6){const s=slide('Sustain and improve proposals','From the section');
+    s.addTable([[H('From'),H('Time'),H('Sustain'),H('Improve')],...d.aarProposals.slice(i,i+6).map(r=>[r.by,{text:r.time,options:{fontSize:10}},r.sustain||'',r.improve||''])],tblOpt([2,1.8,4.2,4.33],11));}
+  if(d.aar) kv(slide('After action review',d.aar.date?'AAR '+d.aar.date:''),[['Supposed to happen',d.aar.plan],['Actually happened',d.aar.happened],['Why the difference',d.aar.why],['Sustain',d.aar.sustain],['Improve',Array.isArray(d.aar.improve)?d.aar.improve.map(x=>x.action).join('\n'):(d.aar.improve||'')]]);
+}
+/* BUILD_DECK_END */
+
+/* ============ Init ============ */
+renderLog();tick();setInterval(tick,1000);
+(async()=>{try{await detectServer();}catch(e){}if(!F('declare').id)F('declare').id=S.op.inc||newId();render();})();
+</script>
+</body>
+</html>

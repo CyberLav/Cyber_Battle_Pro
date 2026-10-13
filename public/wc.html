@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>White Cell</title>
+<style>
+:root{--bg:#EDF0F3;--panel:#FFFFFF;--panel2:#F6F8FA;--ink:#16202B;--muted:#5B6774;--line:#D2D8DF;
+  --friendly:#1D5FA8;--hostile:#B42318;--neutral:#2D7A4B;--unknown:#A86B0C;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--f-head:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;--f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+[data-theme="dark"]{--bg:#0F151C;--panel:#17202A;--panel2:#1D2833;--ink:#E4E9EE;--muted:#95A2AF;--line:#2B3744;--friendly:#6EA6E6;--hostile:#EE7068;--neutral:#6BC48D;--unknown:#E6B24C}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body)}
+button,input,select,textarea{font:inherit;color:inherit}
+.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font:700 20px var(--f-head)}.brand span{color:var(--hostile)}
+.code{font:600 14px var(--f-mono);border:1px solid var(--line);border-radius:6px;padding:4px 10px;background:var(--panel2)}
+.clock{margin-left:auto;text-align:right;font:600 14px var(--f-mono)}.clock small{display:block;font-size:11px;color:var(--muted)}
+.ib{border:1px solid var(--line);background:var(--panel2);border-radius:6px;padding:6px 11px;cursor:pointer;font-weight:600;font-size:14px}
+main{padding:20px;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18px;max-width:1500px;margin:0 auto}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+.sec h2{margin:0 0 12px;font:600 20px var(--f-head);display:flex;align-items:baseline;gap:8px}
+.sec h2 small{font:500 13px var(--f-body);color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
+.teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.team{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--panel2);display:flex;flex-direction:column;gap:6px}
+.team .top{display:flex;align-items:center;gap:8px}
+.team .name{font:700 20px var(--f-head);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 10px}
+.dot.online{background:var(--neutral)}.dot.connecting,.dot.offline{background:var(--unknown)}.dot.refused,.dot.blocked{background:var(--hostile)}
+.sev{font:700 12px var(--f-head);padding:1px 7px;border-radius:3px;border:1.5px solid currentColor}
+.sev.SEV1{color:var(--hostile)}.sev.SEV2{color:var(--unknown)}.sev.SEV3{color:var(--friendly)}.sev.SEV4{color:var(--neutral)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px}.kv dt{color:var(--muted)}.kv dd{margin:0;font-family:var(--f-mono);font-size:12.5px}
+.warn{color:var(--hostile);font-weight:600}
+.small-actions{display:flex;gap:6px;flex-wrap:wrap}
+.btn{border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:var(--panel)}
+.btn.primary{background:var(--friendly);border-color:var(--friendly);color:#fff}
+.btn.sm{padding:4px 10px;font-size:13px}
+input.t,textarea.t,select.t{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+textarea.t{resize:vertical;min-height:64px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rfi{border:1px solid var(--line);border-left:4px solid var(--friendly);border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:10px;background:var(--panel2)}
+.rfi.Urgent{border-left-color:var(--hostile)}.rfi.done{border-left-color:var(--neutral);opacity:.8}
+.rfi .h{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:4px}
+.rfi .h b{font:700 16px var(--f-head)}
+.tag{font-size:12px;font-weight:700;border-radius:10px;padding:0 8px;border:1px solid currentColor}
+.tag.Urgent{color:var(--hostile)}.tag.Time{color:var(--unknown)}.tag.Non{color:var(--muted)}.tag.ok{color:var(--neutral)}
+.rfi p{margin:4px 0;white-space:pre-wrap}
+.ans{border-top:1px dashed var(--line);margin-top:8px;padding-top:6px;font-size:14px;white-space:pre-wrap}
+.ans small{display:block;color:var(--muted);font-size:12px}
+details.sr{border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin-bottom:8px;background:var(--panel2)}
+details.sr summary{cursor:pointer;font-weight:600}
+details.sr pre{white-space:pre-wrap;font:12.5px/1.5 var(--f-mono);margin:8px 0 2px}
+.picks{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.picks label{border:1px solid var(--line);border-radius:14px;padding:3px 10px;font-size:13px;font-weight:600;cursor:pointer;display:flex;gap:6px;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:5px 6px;border-bottom:1px solid var(--line)}
+td{padding:6px;border-bottom:1px solid var(--line);vertical-align:top}
+.inj{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:8px;background:var(--panel2);font-size:13.5px}
+.inj .h{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;margin-bottom:4px}
+.acks{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.ack{font-size:12px;border-radius:10px;padding:0 8px;border:1px solid var(--line)}.ack.y{border-color:var(--neutral);color:var(--neutral)}.ack.n{border-color:var(--unknown);color:var(--unknown)}
+.empty{color:var(--muted);font-size:14px}
+.credit{text-align:center;font-size:13px;color:var(--muted);padding:10px 0 24px}.credit a{color:var(--friendly);font-weight:600;text-decoration:none}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:6px;font-weight:600;opacity:0;transition:.2s;pointer-events:none}
+.toast.show{opacity:1}
+.link{color:var(--hostile);font-weight:700}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Cyber Battle Pro · <span>White Cell</span></div>
+  <div class="code" id="code" title="Give this code to every IC">Exercise code</div>
+  <div class="clock"><span id="z"></span><small id="l"></small></div>
+  <button class="ib" id="exportBtn">Export log (CSV)</button>
+  <button class="ib" id="theme">Dark</button>
+</header>
+<main>
+  <div class="col">
+    <section class="sec"><h2>Teams <small id="teamCount"></small></h2>
+      <div class="teams" id="teams"></div>
+      <div class="row" style="margin-top:12px"><input class="t" id="addr" placeholder="Add an HQ by address, e.g. 192.168.1.20:8443" style="flex:1;min-width:220px"><button class="btn sm" id="addBtn">Add HQ</button><button class="btn sm" id="scanBtn">Scan network</button></div>
+      <p class="muted" style="margin:6px 0 0"><span id="scanState"></span> HQs started with your exercise code are found automatically. You see what a higher HQ would see: each team's status, and the RFIs and RFCs they address to WC.</p>
+    </section>
+    <section class="sec"><h2>RFIs to WC <small id="rfiCount"></small></h2><div id="rfis"></div></section>
+    <section class="sec"><h2>RFCs to WC <small id="rfcCount"></small></h2><div id="rfcs"></div></section>
+  </div>
+  <div class="col">
+    <section class="sec"><h2>Send inject</h2>
+      <span class="muted">To</span>
+      <div class="picks" id="picks"></div>
+      <div class="row" style="margin-bottom:8px"><select class="t" id="prec" style="width:auto"><option>FLASH</option><option>IMMEDIATE</option><option selected>PRIORITY</option><option>ROUTINE</option></select>
+        <label class="muted" style="display:flex;gap:6px;align-items:center">Send at <input class="t" type="time" id="at" style="width:auto"></label></div>
+      <textarea class="t" id="injText" placeholder="e.g. SOC reports a second host, FS-02, beaconing to the same external IP. Confirm scope and report."></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="sendInj">Send inject</button><span class="muted">Leave the time empty to send now.</span></div>
+    </section>
+    <section class="sec"><h2>Injects</h2><div id="injects"></div></section>
+    <section class="sec"><h2>Response times</h2><div id="metrics"></div></section>
+  </div>
+</main>
+<div class="credit">© 2026 Powered by <a href="https://cyberlav.io" target="_blank" rel="noopener">Cyberlav.io</a></div>
+<div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],pad=n=>String(n).padStart(2,'0');
+const tz=()=>{try{return new Intl.DateTimeFormat('en-CA',{timeZoneName:'short'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value}catch(e){return ''}};
+const ldtg=d=>{d=new Date(d);return pad(d.getHours())+pad(d.getMinutes())+' '+pad(d.getDate())+' '+MON[d.getMonth()]+' '+tz()};
+const zdtg=d=>{d=new Date(d);return pad(d.getUTCHours())+pad(d.getUTCMinutes())+' '+pad(d.getUTCDate())+' '+MON[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(2)};
+const dur=ms=>{if(ms==null||ms<0)return '';const s=Math.round(ms/1000),h=Math.floor(s/3600),m=Math.floor(s/60)%60;return h?`${h}h ${pad(m)}m`:m?`${m}m ${pad(s%60)}s`:`${s}s`};
+let S={hqs:[],injects:[]},ws,picked=new Set(),seen=new Set(),drafts={};
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2200)}
+function connect(){
+  ws=new WebSocket(`ws://${location.host}/ui`);
+  ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.t==='state'){const before=countOpen();S=m;render();if(countOpen()>before)beep();}if(m.t==='notice')toast(m.text)};
+  ws.onclose=()=>setTimeout(connect,1500);
+}
+const sendUi=m=>ws&&ws.readyState===1&&ws.send(JSON.stringify(m));
+const itemsOf=(h,k)=>h.items.filter(i=>i.kind===k);
+const answersFor=(h,id)=>h.items.filter(i=>i.kind==='wcmsg'&&i.data.type==='answer'&&i.data.ref===id);
+function countOpen(){return S.hqs.reduce((n,h)=>n+[...itemsOf(h,'rfi'),...itemsOf(h,'rfc')].filter(r=>!answersFor(h,r.id).length).length,0)}
+function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=740;g.gain.value=.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.2)}catch(e){}}
+function teamName(h){return h.team||h.address}
+function render(){
+  $('code').textContent='Exercise code '+S.code;
+  $('scanState').textContent=S.scanning?'Scanning the network…':S.lastScan?`Last scan ${ldtg(S.lastScan)}.`:'';
+  const hqs=S.hqs.slice().sort((a,b)=>teamName(a).localeCompare(teamName(b),undefined,{numeric:true}));
+  $('teamCount').textContent=`${hqs.filter(h=>h.status==='online').length} of ${hqs.length} connected`;
+  $('teams').innerHTML=hqs.length?hqs.map(h=>{
+    const s=h.summary||{},open=itemsOf(h,'rfi').filter(r=>!answersFor(h,r.id).length).length,openC=itemsOf(h,'rfc').filter(r=>!answersFor(h,r.id).length).length;
+    const hp=s.hHour?dur((s.endHour?new Date(s.endHour):Date.now())-new Date(s.hHour)):'';
+    return `<div class="team"><div class="top"><span class="dot ${h.status}" title="${esc(h.status)}"></span><span class="name">${esc(teamName(h))}</span>${s.sev?`<span class="sev ${esc(s.sev)}">${esc(s.sev)}</span>`:''}</div>
+     <dl class="kv"><dt>Incident</dt><dd>${esc(s.incident||'')}</dd>
+      <dt>Status</dt><dd>${s.endHour?'Stood down':s.hHour?esc(s.phase||'Declared'):'Not declared'}</dd>
+      ${hp?`<dt>H+</dt><dd>${hp}</dd>`:''}
+      <dt>On the net</dt><dd>${s.onNet??''}</dd>
+      <dt>Open RFIs</dt><dd class="${open?'warn':''}">${open}</dd>
+      <dt>Open RFCs</dt><dd class="${openC?'warn':''}">${openC}</dd></dl>
+     ${h.status!=='online'?`<div class="muted ${['refused','blocked'].includes(h.status)?'warn':''}">${esc(h.status==='connecting'?'Connecting…':h.status==='offline'?'Connection lost, retrying':h.reason||h.status)}${h.pending?` · ${h.pending} waiting to send`:''}</div>`:''}
+     <div class="muted" style="font-size:12px">${esc(h.address)}${h.fp?' · cert '+esc(h.fp.slice(0,14))+'…':''}</div>
+     <div class="small-actions">${['refused','blocked','offline'].includes(h.status)?`<button class="btn sm" data-retry="${esc(h.key)}">Retry</button>`:''}<button class="btn sm" data-remove="${esc(h.key)}">Remove</button></div></div>`;
+  }).join(''):'<p class="empty">No HQ found yet. Make sure each IC typed your exercise code when starting their HQ, or add one by address.</p>';
+  // picks
+  hqs.forEach(h=>{if(!seen.has(h.key)){seen.add(h.key);picked.add(h.key)}});
+  $('picks').innerHTML=hqs.length?`<label><input type="checkbox" id="pickAll"${hqs.every(h=>picked.has(h.key))?' checked':''}> All</label>`+hqs.map(h=>`<label><input type="checkbox" data-pick="${esc(h.key)}"${picked.has(h.key)?' checked':''}> ${esc(teamName(h))}</label>`).join(''):'<span class="empty">No team connected</span>';
+  // RFIs
+  const rfis=hqs.flatMap(h=>itemsOf(h,'rfi').map(r=>({h,r,ans:answersFor(h,r.id)})));
+  rfis.sort((a,b)=>(!!a.ans.length-!!b.ans.length)||(a.r.data.reason==='Urgent'?-1:0)-(b.r.data.reason==='Urgent'?-1:0)||new Date(b.r.data.ts)-new Date(a.r.data.ts));
+  $('rfiCount').textContent=`${rfis.filter(x=>!x.ans.length).length} open`;
+  const active=document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.draft:null;
+  $('rfis').innerHTML=rfis.length?rfis.map(({h,r,ans})=>{const d=r.data,key=h.key+'|'+r.id,rs=(d.reason||'').split(/[\s-]/)[0];
+    return `<div class="rfi ${esc(d.reason==='Urgent'?'Urgent':'')} ${ans.length?'done':''}"><div class="h"><b>${esc(teamName(h))}</b><span class="tag ${esc(rs)}">${esc(d.reason||'')}</span>${ans.length?'<span class="tag ok">Answered</span>':''}<span class="muted">${esc(d.unit||d.author||'')} · requested ${esc(d.time||ldtg(d.ts))}</span></div>
+     <p>${esc(d.details||'')}</p><div class="muted">Location: ${esc(d.loc||'')} · Needed by ${esc(d.by||'')}</div>
+     ${ans.map(a=>`<div class="ans"><small>Answered ${esc(ldtg(a.data.ts))}</small>${esc(a.data.text)}</div>`).join('')}
+     <div class="row" style="margin-top:8px"><textarea class="t" data-draft="${esc(key)}" placeholder="${ans.length?'Add to the answer':'Answer as WC'}" style="min-height:44px">${esc(drafts[key]||'')}</textarea><button class="btn sm primary" data-answer="${esc(key)}" data-on="rfi">Send answer</button></div></div>`}).join(''):'<p class="empty">No RFI addressed to WC yet.</p>';
+  // RFCs
+  const rfcs=hqs.flatMap(h=>itemsOf(h,'rfc').map(r=>({h,r,ans:answersFor(h,r.id)})));
+  rfcs.sort((a,b)=>(!!a.ans.length-!!b.ans.length)||new Date(b.r.data.ts)-new Date(a.r.data.ts));
+  $('rfcCount').textContent=`${rfcs.filter(x=>!x.ans.length).length} awaiting decision`;
+  $('rfcs').innerHTML=rfcs.length?rfcs.map(({h,r,ans})=>{const d=r.data,key=h.key+'|'+r.id,last=ans[ans.length-1];
+    const dc=last&&last.data.decision;
+    return `<div class="rfi ${ans.length?'done':''}"><div class="h"><b>${esc(teamName(h))}</b><span>${esc(d.title||'')}</span>${dc?`<span class="tag ${dc==='Approved'?'ok':'Urgent'}">${esc(dc)}</span>`:''}<span class="muted">${esc(d.author||'')} · ${esc(ldtg(d.ts))}</span></div>
+     <div class="muted">Asset: ${esc(d.asset||'')} · Down time: ${esc(d.down||'')} · Start: ${esc(d.imm?'Immediately':d.start||'')} · End: ${esc(d.end||'')}</div>
+     <p>${esc(d.just||'')}</p>
+     <details class="sr"><summary>Plans</summary><pre>${esc(['Implementation plan',d.impl,'','Backout plan',d.backout,'','Risk and impact',d.risk,'','Test plan',d.test].join('\n'))}</pre></details>
+     ${ans.map(a=>`<div class="ans"><small>${esc(a.data.decision||'Comment')} · ${esc(ldtg(a.data.ts))}</small>${esc(a.data.text||'')}</div>`).join('')}
+     <div class="row" style="margin-top:8px"><textarea class="t" data-draft="${esc(key)}" placeholder="Comment for the team (optional)" style="min-height:44px">${esc(drafts[key]||'')}</textarea>
+      <button class="btn sm primary" data-answer="${esc(key)}" data-on="rfc" data-decision="Approved">Approve</button><button class="btn sm" data-answer="${esc(key)}" data-on="rfc" data-decision="Rejected">Reject</button><button class="btn sm" data-answer="${esc(key)}" data-on="rfc" data-decision="More information required">More info</button></div></div>`}).join(''):'<p class="empty">No RFC addressed to WC yet.</p>';
+  if(active){const el=document.querySelector(`[data-draft="${CSS.escape(active)}"]`);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}
+  // Injects
+  const ackOf=(inj,h)=>h.items.find(i=>i.kind==='wcmsg'&&i.data.type==='ack'&&String(i.data.ref||'').startsWith(inj.id+'.'));
+  const byKey=Object.fromEntries(hqs.map(h=>[h.key,h]));
+  $('injects').innerHTML=S.injects.length?S.injects.slice().reverse().map(inj=>`<div class="inj"><div class="h"><b>${esc(inj.prec)}</b><span class="muted">${inj.status==='scheduled'?'Scheduled for '+esc(ldtg(inj.at)):inj.status==='cancelled'?'Cancelled':'Sent '+esc(ldtg(inj.sentAt))}</span>${inj.status==='scheduled'?`<button class="btn sm" data-cancel="${inj.id}">Cancel</button>`:''}</div>
+     <div style="white-space:pre-wrap">${esc(inj.text)}</div>
+     ${inj.status==='sent'?`<div class="acks">${inj.keys.map(k=>{const h=byKey[k];if(!h)return '';const a=ackOf(inj,h);return `<span class="ack ${a?'y':'n'}">${esc(teamName(h))}: ${a?'ack '+dur(new Date(a.data.ts)-new Date(inj.sentAt))+(a.data.by?' by '+esc(a.data.by):''):'not acknowledged'}</span>`}).join('')}</div>`:''}</div>`).join(''):'<p class="empty">No inject sent yet.</p>';
+  // Metrics
+  $('metrics').innerHTML=hqs.length?`<table><tr><th>Team</th><th>Injects acked</th><th>Avg time to ack</th><th>RFIs to WC</th><th>RFCs to WC</th></tr>${hqs.map(h=>{
+     const sent=S.injects.filter(i=>i.status==='sent'&&i.keys.includes(h.key));const acks=sent.map(i=>{const a=ackOf(i,h);return a?new Date(a.data.ts)-new Date(i.sentAt):null}).filter(x=>x!=null);
+     return `<tr><td>${esc(teamName(h))}</td><td>${acks.length} / ${sent.length}</td><td>${acks.length?dur(acks.reduce((a,b)=>a+b,0)/acks.length):''}</td><td>${itemsOf(h,'rfi').length}</td><td>${itemsOf(h,'rfc').length}</td></tr>`}).join('')}</table>`:'<p class="empty">Appears once teams are connected.</p>';
+  render.init=true;
+}
+function tick(){const n=new Date();$('z').textContent='ZULU '+zdtg(n);$('l').textContent=ldtg(n)}
+document.addEventListener('input',e=>{if(e.target.dataset.draft)drafts[e.target.dataset.draft]=e.target.value});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.id==='pickAll'){S.hqs.forEach(h=>t.checked?picked.add(h.key):picked.delete(h.key));render()}
+  if(t.dataset.pick){t.checked?picked.add(t.dataset.pick):picked.delete(t.dataset.pick);render()}});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.id==='addBtn'){sendUi({t:'add',address:$('addr').value});$('addr').value='';}
+  if(b.dataset.remove&&confirm('Remove this HQ from the console?'))sendUi({t:'remove',key:b.dataset.remove});
+  if(b.dataset.retry)sendUi({t:'retry',key:b.dataset.retry});
+  if(b.dataset.answer){const k=b.dataset.answer,txt=(drafts[k]||'').trim(),on=b.dataset.on,dec=b.dataset.decision||'';if(!txt&&!dec)return toast('Write the answer first');const i=k.indexOf('|');sendUi({t:'answer',key:k.slice(0,i),ref:k.slice(i+1),on,decision:dec,text:txt});delete drafts[k];toast(dec?'Decision sent: '+dec:'Answer sent');}
+  if(b.id==='scanBtn')sendUi({t:'scan'});
+  if(b.id==='sendInj'){const text=$('injText').value.trim();if(!text)return toast('Write the inject first');if(!picked.size)return toast('Pick at least one team');
+    let at=0;const v=$('at').value;if(v){const [hh,mm]=v.split(':').map(Number);const d=new Date();d.setHours(hh,mm,0,0);if(d<new Date())d.setDate(d.getDate()+1);at=d.getTime();}
+    sendUi({t:'inject',keys:[...picked],text,prec:$('prec').value,at});$('injText').value='';$('at').value='';toast(at?'Inject scheduled':'Inject sent');}
+  if(b.dataset.cancel)sendUi({t:'cancel',id:b.dataset.cancel});
+  if(b.id==='theme'){const d=document.documentElement.dataset.theme==='dark';document.documentElement.dataset.theme=d?'light':'dark';b.textContent=d?'Dark':'Light'}
+  if(b.id==='exportBtn')exportCsv();
+});
+function exportCsv(){
+  const rows=[['time_utc','team','type','detail','by']];const add=(t,team,type,detail,by)=>rows.push([new Date(t).toISOString(),team,type,detail,by||'']);
+  S.hqs.forEach(h=>{const n=teamName(h);h.items.forEach(i=>{const d=i.data;
+    if(i.kind==='rfi')add(d.ts,n,'RFI to WC',`${d.reason}: ${d.details}`,d.author||d.unit);
+    if(i.kind==='rfc')add(d.ts,n,'RFC to WC',`${d.title}: ${d.asset}`,d.author);
+    if(i.kind==='wcmsg'&&d.type==='answer')add(d.ts,n,d.on==='rfc'?'RFC decision':'RFI answer',(d.decision?d.decision+': ':'')+(d.text||''),'White Cell');
+    if(i.kind==='wcmsg'&&d.type==='ack')add(d.ts,n,'Inject acknowledged',d.text||'',d.by);});});
+  S.injects.filter(i=>i.status==='sent').forEach(i=>add(i.sentAt,i.keys.map(k=>(S.hqs.find(h=>h.key===k)||{}).team||k).join('; '),'Inject sent',`${i.prec}: ${i.text}`,'White Cell'));
+  rows.sort((a,b)=>a[0]<b[0]?-1:1);
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`white_cell_log_${zdtg(new Date()).replace(/\s/g,'')}.csv`;a.click();
+}
+tick();setInterval(tick,1000);connect();
+</script>
+</body>
+</html>

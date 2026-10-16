@@ -28,7 +28,7 @@ main{padding:20px;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:18p
 .team .top{display:flex;align-items:center;gap:8px}
 .team .name{font:700 20px var(--f-head);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 10px}
-.dot.online{background:var(--neutral)}.dot.connecting,.dot.offline{background:var(--unknown)}.dot.refused,.dot.blocked{background:var(--hostile)}
+.dot.online{background:var(--neutral)}.dot.connecting,.dot.offline,.dot.paused{background:var(--unknown)}.dot.refused,.dot.blocked{background:var(--hostile)}
 .sev{font:700 12px var(--f-head);padding:1px 7px;border-radius:3px;border:1.5px solid currentColor}
 .sev.SEV1{color:var(--hostile)}.sev.SEV2{color:var(--unknown)}.sev.SEV3{color:var(--friendly)}.sev.SEV4{color:var(--neutral)}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px}.kv dt{color:var(--muted)}.kv dd{margin:0;font-family:var(--f-mono);font-size:12.5px}
@@ -74,6 +74,7 @@ td{padding:6px;border-bottom:1px solid var(--line);vertical-align:top}
   <div class="code" id="code" title="Give this code to every IC">Exercise code</div>
   <div class="clock"><span id="z"></span><small id="l"></small></div>
   <button class="ib" id="exportBtn">Export log (CSV)</button>
+  <button class="ib" id="endexBtn" title="Delete the saved White Cell session and close the console">End exercise</button>
   <button class="ib" id="theme">Dark</button>
 </header>
 <main>
@@ -81,7 +82,7 @@ td{padding:6px;border-bottom:1px solid var(--line);vertical-align:top}
     <section class="sec"><h2>Teams <small id="teamCount"></small></h2>
       <div class="teams" id="teams"></div>
       <div class="row" style="margin-top:12px"><input class="t" id="addr" placeholder="Add an HQ by address, e.g. 192.168.1.20:8443" style="flex:1;min-width:220px"><button class="btn sm" id="addBtn">Add HQ</button><button class="btn sm" id="scanBtn">Scan network</button></div>
-      <p class="muted" style="margin:6px 0 0"><span id="scanState"></span> HQs started with your exercise code are found automatically. You see what a higher HQ would see: each team's status, and the RFIs and RFCs they address to WC.</p>
+      <p class="muted" style="margin:6px 0 0"><span id="scanState"></span> <span id="saveState"></span> HQs started with your exercise code are found automatically. You see what a higher HQ would see: each team's status, and the RFIs and RFCs they address to WC.</p>
     </section>
     <section class="sec"><h2>RFIs to WC <small id="rfiCount"></small></h2><div id="rfis"></div></section>
     <section class="sec"><h2>RFCs to WC <small id="rfcCount"></small></h2><div id="rfcs"></div></section>
@@ -124,6 +125,7 @@ function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)
 function teamName(h){return h.team||h.address}
 function render(){
   $('code').textContent='Exercise code '+S.code;
+  const sv=S.save||{};$('saveState').textContent=!sv.on?'Not saved to disk.':sv.error?'Last save failed: '+sv.error+'.':`Saved on this laptop${sv.encrypted?' with a passphrase':''}${sv.at?', '+ldtg(sv.at):''}${sv.resumed?' (resumed)':''}.`;
   $('scanState').textContent=S.scanning?'Scanning the network…':S.lastScan?`Last scan ${ldtg(S.lastScan)}.`:'';
   const hqs=S.hqs.slice().sort((a,b)=>teamName(a).localeCompare(teamName(b),undefined,{numeric:true}));
   $('teamCount').textContent=`${hqs.filter(h=>h.status==='online').length} of ${hqs.length} connected`;
@@ -137,9 +139,9 @@ function render(){
       <dt>On the net</dt><dd>${s.onNet??''}</dd>
       <dt>Open RFIs</dt><dd class="${open?'warn':''}">${open}</dd>
       <dt>Open RFCs</dt><dd class="${openC?'warn':''}">${openC}</dd></dl>
-     ${h.status!=='online'?`<div class="muted ${['refused','blocked'].includes(h.status)?'warn':''}">${esc(h.status==='connecting'?'Connecting…':h.status==='offline'?'Connection lost, retrying':h.reason||h.status)}${h.pending?` · ${h.pending} waiting to send`:''}</div>`:''}
+     ${h.status!=='online'?`<div class="muted ${['refused','blocked'].includes(h.status)?'warn':''}">${esc(h.status==='connecting'?'Connecting…':h.status==='offline'?'Connection lost, retrying':h.status==='paused'?'Exercise paused by the IC, waiting for the HQ':h.reason||h.status)}${h.pending?` · ${h.pending} waiting to send`:''}</div>`:''}
      <div class="muted" style="font-size:12px">${esc(h.address)}${h.fp?' · cert '+esc(h.fp.slice(0,14))+'…':''}</div>
-     <div class="small-actions">${['refused','blocked','offline'].includes(h.status)?`<button class="btn sm" data-retry="${esc(h.key)}">Retry</button>`:''}<button class="btn sm" data-remove="${esc(h.key)}">Remove</button></div></div>`;
+     <div class="small-actions">${['refused','blocked','offline','paused'].includes(h.status)?`<button class="btn sm" data-retry="${esc(h.key)}">Retry</button>`:''}<button class="btn sm" data-remove="${esc(h.key)}">Remove</button></div></div>`;
   }).join(''):'<p class="empty">No HQ found yet. Make sure each IC typed your exercise code when starting their HQ, or add one by address.</p>';
   // picks
   hqs.forEach(h=>{if(!seen.has(h.key)){seen.add(h.key);picked.add(h.key)}});
@@ -171,7 +173,7 @@ function render(){
   // Injects
   const ackOf=(inj,h)=>h.items.find(i=>i.kind==='wcmsg'&&i.data.type==='ack'&&String(i.data.ref||'').startsWith(inj.id+'.'));
   const byKey=Object.fromEntries(hqs.map(h=>[h.key,h]));
-  $('injects').innerHTML=S.injects.length?S.injects.slice().reverse().map(inj=>`<div class="inj"><div class="h"><b>${esc(inj.prec)}</b><span class="muted">${inj.status==='scheduled'?'Scheduled for '+esc(ldtg(inj.at)):inj.status==='cancelled'?'Cancelled':'Sent '+esc(ldtg(inj.sentAt))}</span>${inj.status==='scheduled'?`<button class="btn sm" data-cancel="${inj.id}">Cancel</button>`:''}</div>
+  $('injects').innerHTML=S.injects.length?S.injects.slice().reverse().map(inj=>`<div class="inj"><div class="h"><b>${esc(inj.prec)}</b><span class="muted">${inj.status==='scheduled'?'Scheduled for '+esc(ldtg(inj.at)):inj.status==='held'?'<b class="warn">Held</b>: was due '+esc(ldtg(inj.at))+' during the pause':inj.status==='cancelled'?'Cancelled':'Sent '+esc(ldtg(inj.sentAt))}</span>${['scheduled','held'].includes(inj.status)?`<button class="btn sm${inj.status==='held'?' primary':''}" data-sendnow="${inj.id}">Send now</button><button class="btn sm" data-cancel="${inj.id}">Cancel</button>`:''}</div>
      <div style="white-space:pre-wrap">${esc(inj.text)}</div>
      ${inj.status==='sent'?`<div class="acks">${inj.keys.map(k=>{const h=byKey[k];if(!h)return '';const a=ackOf(inj,h);return `<span class="ack ${a?'y':'n'}">${esc(teamName(h))}: ${a?'ack '+dur(new Date(a.data.ts)-new Date(inj.sentAt))+(a.data.by?' by '+esc(a.data.by):''):'not acknowledged'}</span>`}).join('')}</div>`:''}</div>`).join(''):'<p class="empty">No inject sent yet.</p>';
   // Metrics
@@ -195,6 +197,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
     let at=0;const v=$('at').value;if(v){const [hh,mm]=v.split(':').map(Number);const d=new Date();d.setHours(hh,mm,0,0);if(d<new Date())d.setDate(d.getDate()+1);at=d.getTime();}
     sendUi({t:'inject',keys:[...picked],text,prec:$('prec').value,at});$('injText').value='';$('at').value='';toast(at?'Inject scheduled':'Inject sent');}
   if(b.dataset.cancel)sendUi({t:'cancel',id:b.dataset.cancel});
+  if(b.dataset.sendnow)sendUi({t:'sendnow',id:b.dataset.sendnow});
+  if(b.id==='endexBtn'&&confirm('End the exercise for the White Cell? Export the log first if you need it. The saved White Cell session is deleted and the console closes. To stop for the night, just close the black window: the session is saved.'))sendUi({t:'endex'});
   if(b.id==='theme'){const d=document.documentElement.dataset.theme==='dark';document.documentElement.dataset.theme=d?'light':'dark';b.textContent=d?'Dark':'Light'}
   if(b.id==='exportBtn')exportCsv();
 });

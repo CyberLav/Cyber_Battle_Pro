@@ -265,6 +265,8 @@ a.btn{color:var(--ink);display:inline-block}
 .icp-check .btn{margin-top:8px}
 #endBar{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--hostile);color:#fff;padding:10px 18px;font-size:15px;display:none;padding-top:calc(10px + env(safe-area-inset-top,0px))}
 #endBar.show{display:block}
+#endBar.pause{background:var(--unknown);color:#111}
+.team[data-st="paused"] .tdot{background:var(--unknown)}
 @media(max-width:600px){.icp{grid-template-columns:1fr}.icp-qr img{width:160px;height:160px}}
 .banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1.5px solid var(--friendly);border-left-width:6px;border-radius:8px;padding:12px 14px;margin-bottom:14px}
 .banner b{font:700 17px var(--f-head);letter-spacing:.03em}.banner span{color:var(--muted);font-size:14px;flex:1;min-width:180px}
@@ -349,7 +351,7 @@ dialog p{margin:0 0 14px;color:var(--muted);font-size:14px}
     <div class="log-head">
       <button class="ib close-log" id="closeLog">Close</button>
       <h2>Session log</h2>
-      <p>Kept in memory only. Closing or refreshing the page clears it.</p>
+      <p id="logNote">Kept in memory only. Closing or refreshing the page clears it.</p>
       <div class="legend">
         <span><i style="background:var(--command)"></i>Command</span>
         <span><i style="background:var(--friendly)"></i>Friendly</span>
@@ -1296,11 +1298,13 @@ function banners(){
   return inj+tasks+ans+bannersDocs();
 }
 function bannersDocs(){
-  const list=SYNC.inbox.filter(d=>!SYNC.acked.has(d.id));
+  // After a reload or an overnight pause the backlog comes back: skip orders this person wrote or already acknowledged
+  const who=me()||'Analyst';
+  const list=SYNC.inbox.filter(d=>!SYNC.acked.has(d.id)&&!(who&&d.by===who&&canCommand())&&!S.log.some(l=>l.text===`ACK: ${who} acknowledged ${d.title} from ${d.by||'IC'}.`));
   return list.map(d=>`<div class="banner"><b>${esc(d.title)} received</b><span>From ${esc(d.by||'IC')}, ${stamp(new Date(d.ts))}</span><button class="btn sm" data-viewdoc="${d.id}">View</button><button class="btn sm primary" data-ack="${d.id}">Acknowledge</button></div>`).join('');
 }
 function ackDoc(id){const d=S.docs.find(x=>x.id===id);SYNC.acked.add(id);if(d)addLog('command',`ACK: ${me()||'Analyst'} acknowledged ${d.title} from ${d.by||'IC'}.`,'Team');render();toast('Acknowledged');}
-const REJOIN_KEY='cbp.rejoin',REJOIN_TTL=12*36e5;
+const REJOIN_KEY='cbp.rejoin',REJOIN_TTL=72*36e5;   // long enough for a pause over a night or a weekend
 function rejoinSave(){try{if(!SYNC.info||SYNC.info.ic||!SYNC.code)return;localStorage.setItem(REJOIN_KEY,JSON.stringify({host:location.host,code:SYNC.code,name:S.op.name,call:S.op.call,ts:Date.now()}));}catch(e){}}
 function rejoinLoad(){try{const r=JSON.parse(localStorage.getItem(REJOIN_KEY)||'null');if(!r||r.host!==location.host||Date.now()-r.ts>REJOIN_TTL){localStorage.removeItem(REJOIN_KEY);return null;}return r;}catch(e){return null;}}
 function rejoinClear(){try{localStorage.removeItem(REJOIN_KEY);}catch(e){}}
@@ -1333,6 +1337,7 @@ function teamConnect(){
   ws.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}onSync(m);};
   ws.onclose=()=>{if(SYNC.ws!==ws)return;SYNC.ws=null;
     if(['denied','left','ended'].includes(SYNC.state)){renderTeam();return;}
+    if(SYNC.paused){SYNC.state='paused';renderTeam();SYNC.timer=setTimeout(teamConnect,30000);return;}
     SYNC.state='offline';renderTeam();SYNC.timer=setTimeout(teamConnect,Math.min(15000,1000*2**Math.min(SYNC.retry++,4)));};
 }
 function teamLeave(){rejoinClear();SYNC.state='left';clearTimeout(SYNC.timer);if(SYNC.ws)SYNC.ws.close();SYNC.ws=null;SYNC.state='solo';renderTeam();toast('Left the team session. Your copy stays on this device.');}
@@ -1341,7 +1346,9 @@ function onSync(m){
   if(m.t==='welcome'){
     SYNC.retry=0;SYNC.state='online';SYNC.members=m.members||[];SYNC.joined=true;rejoinSave();SYNC.me=m.you;SYNC.role=m.role||'member';
     if(m.incident&&SYNC.info){SYNC.info.incident=m.incident;if(!S.hHour){F('declare').id=m.incident;S.op.inc=m.incident;renderBar();}}
-    if(m.serverId!==SYNC.serverId){SYNC.serverId=m.serverId;SYNC.lastSeq=0;SYNC.sent.clear();SYNC.hash={};}
+    // New HQ, or the same HQ resumed from a checkpoint older than this device's copy: push everything again (the HQ drops duplicates)
+    if(m.serverId!==SYNC.serverId||(m.seq||0)<SYNC.lastSeq){SYNC.serverId=m.serverId;SYNC.lastSeq=0;SYNC.sent.clear();SYNC.hash={};}
+    if(SYNC.paused){SYNC.paused=false;SYNC.endAt=null;endBanner();toast('The HQ is back: exercise resumed');}
     renderTeam();return;}
   if(m.t==='entries'){applyEntries(m.items||[]);return;}
   if(m.t==='synced'){
@@ -1355,8 +1362,9 @@ function onSync(m){
       renderBar();sendWS({t:'op',op:S.op});
       toast(m.role==='2IC'?'You are now 2IC: you can issue orders':m.role==='Intel'?'You are now Intel':m.role==='member'?'Role removed':'Role: '+m.role);softRender();}return;}
   if(m.t==='notice'){toast(m.text);return;}
-  if(m.t==='ending'){SYNC.endAt=m.at;endBanner();return;}
-  if(m.t==='ending-cancelled'){SYNC.endAt=null;endBanner();toast('End of session cancelled');return;}
+  if(m.t==='ending'){SYNC.endAt=m.at;SYNC.endMode=m.mode||'end';endBanner();return;}
+  if(m.t==='ending-cancelled'){SYNC.endAt=null;endBanner();toast(m.mode==='pause'?'Pause cancelled':'End of session cancelled');return;}
+  if(m.t==='ended'&&m.mode==='pause'){SYNC.endAt=null;SYNC.paused=true;SYNC.state='paused';rejoinSave();endBanner('pause');renderTeam();return;}
   if(m.t==='ended'){rejoinClear();SYNC.endAt=null;SYNC.state='ended';clearTimeout(SYNC.timer);try{SYNC.ws&&SYNC.ws.close()}catch(e){}endBanner(true);renderTeam();return;}
 }
 const isoD=v=>new Date(v).toISOString();
@@ -1452,11 +1460,12 @@ function wcChanged(was,now){
   if(canCommand())toast(now?'White Cell (WC) is now monitoring this HQ':'White Cell disconnected');
 }
 function renderTeam(){
+  const ln=document.getElementById('logNote');if(ln)ln.textContent=SYNC.joined?'Shared with the section through the HQ, which saves it so the exercise can be paused and resumed.':'Kept in memory only. Closing or refreshing the page clears it.';
   const wb=document.getElementById('wcBadge');if(wb)wb.hidden=!(SYNC.state==='online'&&SYNC.wc>0);
   const b=document.getElementById('teamBtn'),t=document.getElementById('teamTxt');
   b.dataset.st=SYNC.state;
   b.title=SYNC.info?`${SYNC.info.hq||'Field HQ'}, ${SYNC.info.incident}`:'Team session';
-  t.textContent=SYNC.state==='ended'?'Ended':SYNC.state==='online'?`${SYNC.info&&SYNC.info.hq&&SYNC.info.hq!=='cbp-hq'?SYNC.info.hq+' · ':'Team '}${SYNC.members.length}`:SYNC.state==='connecting'?'Joining':SYNC.state==='offline'?'Reconnecting':SYNC.state==='denied'?'Refused':'Solo';
+  t.textContent=SYNC.state==='ended'?'Ended':SYNC.state==='paused'?'Paused':SYNC.state==='online'?`${SYNC.info&&SYNC.info.hq&&SYNC.info.hq!=='cbp-hq'?SYNC.info.hq+' · ':'Team '}${SYNC.members.length}`:SYNC.state==='connecting'?'Joining':SYNC.state==='offline'?'Reconnecting':SYNC.state==='denied'?'Refused':'Solo';
   if(document.getElementById('teamDlg').open)fillTeam();
 }
 function fillTeam(){
@@ -1466,13 +1475,13 @@ function fillTeam(){
   if(!SYNC.info){
     body.innerHTML=`<p>Team mode works when the app is opened from an IC laptop running the Field HQ server: scan the QR code shown on the IC's screen.</p><p class="muted">Without it, use Send to IC and Consolidate logs.</p>`;
     btns.innerHTML=`<button class="btn" data-closeteam>Close</button>`;return;}
-  const st={ended:'Session ended by the IC',online:'Connected',connecting:'Joining',offline:'Connection lost, retrying',denied:'Access refused',solo:'Not connected',left:'Not connected'}[SYNC.state];
+  const st={paused:'Exercise paused by the IC. This page reconnects by itself when the HQ is started again',ended:'Session ended by the IC',online:'Connected',connecting:'Joining',offline:'Connection lost, retrying',denied:'Access refused',solo:'Not connected',left:'Not connected'}[SYNC.state];
   body.innerHTML=`<p style="margin:0 0 2px;font:700 18px var(--f-head)">${esc(SYNC.info.hq||'Field HQ')}</p><p class="muted" style="margin:0 0 10px">Incident <b>${esc(SYNC.info.incident)}</b> on ${esc(location.host)}. Check this is your team's HQ before entering the code.</p>
    <p style="margin:0 0 8px"><b>${st}</b>${SYNC.state==='online'?`, ${SYNC.members.length} on the net`:''}</p>
    ${SYNC.state==='online'?`<ul class="mlist">${SYNC.members.map(m=>`<li><b>${esc(m.call||'')}</b> ${esc(m.name||'Unnamed')} <span class="muted">${esc(m.role||'')}</span></li>`).join('')}</ul>`:
     `<div class="fld" style="margin-top:10px"><label for="teamCode">Access code</label><input id="teamCode" value="${esc(SYNC.code)}" placeholder="RAVEN-4721" autocomplete="off" style="font-family:var(--f-mono);font-size:20px;letter-spacing:.08em;text-transform:uppercase"></div>
      ${S.op.name?'':`<div class="row2"><div class="fld"><label for="teamName">Your name</label><input id="teamName" placeholder="Rank, name"></div><div class="fld"><label for="teamCall">Callsign</label><input id="teamCall" placeholder="e.g. 11"></div></div>`}`}
-   <p class="muted" style="margin-top:12px">Entries are relayed through the IC laptop and kept in memory only. Your device keeps a full copy; if the HQ restarts, it is reseeded automatically.</p>`;
+   <p class="muted" style="margin-top:12px">Entries are relayed through the IC laptop, which saves the session so it can be paused overnight. Your device keeps a full copy; if the HQ restarts, it is reseeded automatically.</p>`;
   btns.innerHTML=SYNC.state==='online'?`<button class="btn" id="teamLeave">Leave</button><button class="btn primary" data-closeteam>Close</button>`:
     `<button class="btn" data-closeteam>Close</button><button class="btn primary" id="teamJoin">Join</button>`;
 }
@@ -1493,18 +1502,31 @@ function fillIcPanel(body,btns){
    ${SYNC.wc?'<p class="muted" style="margin:10px 0 0"><b style="color:var(--unknown)">White Cell connected</b>: it sees your incident status and the RFIs and RFCs you address to WC.</p>':''}
    <span class="lbl" style="margin-top:12px">On the net (${SYNC.members.length})</span>
    <ul class="mlist">${SYNC.members.map(m=>`<li><b>${esc(m.call||'')}</b> ${esc(m.name||'Unnamed')} ${['IC','2IC','Intel'].includes(m.hq)?`<span class="rtag">${m.hq}</span>`:''} <span class="muted">${esc(m.role||'')}${m.ip&&!/^(127\.|::1)/.test(m.ip)?' · '+esc(m.ip):''}</span>${m.hq!=='IC'?`<span style="float:right;display:flex;gap:4px"><button class="btn sm" data-role2ic="${esc(m.client)}" data-to="${m.hq==='2IC'?'member':'2IC'}">${m.hq==='2IC'?'Remove 2IC':'Make 2IC'}</button><button class="btn sm" data-role2ic="${esc(m.client)}" data-to="${m.hq==='Intel'?'member':'Intel'}">${m.hq==='Intel'?'Remove Intel':'Make Intel'}</button></span>`:''}</li>`).join('')}</ul>
-   ${SYNC.endAt?`<div class="icp-check bad"><b>Session ends in <span id="endLeft">${Math.max(0,Math.round((SYNC.endAt-Date.now())/1000))}</span> s</b><div>Export the PowerPoint now if you need it.</div><button class="btn sm" id="endCancel">Cancel</button></div>`:''}`;
-  btns.innerHTML=`<a class="btn" href="hq" target="_blank" style="text-decoration:none">Projector view</a><span class="spacer"></span>${SYNC.endAt?'':'<button class="btn danger" id="endSession">End session</button>'}<button class="btn primary" data-closeteam>Close</button>`;
+   ${saveLine()}
+   ${SYNC.endAt?(SYNC.endMode==='pause'?`<div class="icp-check"><b>Pausing in <span id="endLeft">${Math.max(0,Math.round((SYNC.endAt-Date.now())/1000))}</span> s</b><div>Everything is saved. Start CBP-HQ tomorrow and choose this session: same address, code and log.</div><button class="btn sm" id="endCancel">Cancel</button></div>`:
+     `<div class="icp-check bad"><b>Session ends in <span id="endLeft">${Math.max(0,Math.round((SYNC.endAt-Date.now())/1000))}</span> s</b><div>Export the PowerPoint now if you need it. The saved file is deleted at the end.</div><button class="btn sm" id="endCancel">Cancel</button></div>`):''}`;
+  const canPause=!SYNC.hqStatus||SYNC.hqStatus.save&&SYNC.hqStatus.save.on;
+  btns.innerHTML=`<a class="btn" href="hq" target="_blank" style="text-decoration:none">Projector view</a><span class="spacer"></span>${SYNC.endAt?'':`${canPause?'<button class="btn" id="pauseSession" title="Save everything and close the HQ until tomorrow">Pause session</button>':''}<button class="btn danger" id="endSession">End session</button>`}<button class="btn primary" data-closeteam>Close</button>`;
+  if(!SYNC.stLoading&&Date.now()-(SYNC.stAt||0)>5000){SYNC.stLoading=true;fetch('hq/status',{cache:'no-store'}).then(r=>r.json()).then(j=>{const was=JSON.stringify(SYNC.hqStatus&&SYNC.hqStatus.save);SYNC.hqStatus=j;SYNC.stAt=Date.now();if(was!==JSON.stringify(j.save)&&document.getElementById('teamDlg').open)fillTeam();}).catch(()=>{}).finally(()=>{SYNC.stLoading=false;});}
   if(!pf&&!SYNC.pfLoading){SYNC.pfLoading=true;fetch('hq/preflight',{cache:'no-store'}).then(r=>r.json()).then(j=>{SYNC.preflight=j}).catch(()=>{SYNC.preflight={issues:[]}}).finally(()=>{SYNC.pfLoading=false;if(document.getElementById('teamDlg').open)fillTeam();});}
+}
+function saveLine(){
+  const s=SYNC.hqStatus&&SYNC.hqStatus.save;if(!s)return'';
+  if(!s.on)return'<p class="muted" style="margin:10px 0 0;font-size:13px">Not saved to disk (started with --no-save): closing the HQ clears the session.</p>';
+  const ago=s.at?Math.max(0,Math.round((Date.now()-s.at)/60000)):null;
+  return `<p class="muted" style="margin:10px 0 0;font-size:13px">${s.error?`<b style="color:var(--hostile)">Last save failed: ${esc(s.error)}</b>`:`Saved on this laptop${s.encrypted?' with a passphrase':' without a passphrase'}${ago!=null?`, ${ago?ago+' min ago':'just now'}`:''}`}${s.resumed?' · resumed session':''}. Pause session keeps it for tomorrow.</p>`;
 }
 function endBanner(ended){
   let el=document.getElementById('endBar');
   if(!el){el=document.createElement('div');el.id='endBar';document.body.appendChild(el);}
   clearInterval(SYNC.endTick);
+  if(ended==='pause'){el.className='show pause';el.innerHTML='<b>The IC paused the exercise.</b> Everything is saved on the HQ. When it starts again this page reconnects by itself, or open the same address and you rejoin without the code.';return;}
   if(ended){el.className='show';el.innerHTML='<b>The HQ ended the session.</b> Your copy stays on this device until you close the page: export or copy what you need now.';return;}
   if(!SYNC.endAt){el.className='';return;}
-  const draw=()=>{const s=Math.max(0,Math.round((SYNC.endAt-Date.now())/1000));el.className='show';
-    el.innerHTML=`<b>HQ closing in ${s} s.</b> Send your log to the IC or export what you need now.`;const l=document.getElementById('endLeft');if(l)l.textContent=s;};
+  const draw=()=>{const s=Math.max(0,Math.round((SYNC.endAt-Date.now())/1000));
+    if(SYNC.endMode==='pause'){el.className='show pause';el.innerHTML=`<b>Exercise pausing in ${s} s.</b> Finish what you are typing and submit it: the HQ saves everything and resumes tomorrow.`;}
+    else{el.className='show';el.innerHTML=`<b>HQ closing in ${s} s.</b> Send your log to the IC or export what you need now.`;}
+    const l=document.getElementById('endLeft');if(l)l.textContent=s;};
   draw();SYNC.endTick=setInterval(draw,1000);
 }
 async function hqPost(path){const r=await fetch(path,{method:'POST',headers:{'x-cbp':'1'}});return r.json();}
@@ -1516,7 +1538,8 @@ document.getElementById('teamDlg').addEventListener('click',e=>{
   if(b.id==='teamLeave'){teamLeave();document.getElementById('teamDlg').close();return;}
   if(b.dataset.copyjoin){copy(b.dataset.copyjoin,'Join link copied. Send it over your out of band channel.');return;}
   if(b.id==='pfFix'){b.disabled=true;b.textContent='Waiting for administrator approval…';hqPost('hq/fix').then(r=>{SYNC.preflight=r.preflight||SYNC.preflight;toast(r.text);fillTeam();}).catch(()=>{toast('Fix failed');fillTeam();});return;}
-  if(b.id==='endSession'){if(!confirm('End the session for the whole section? Everyone gets 60 seconds to send or export, then the HQ closes and its memory is cleared.'))return;hqPost('hq/end?s=60').then(()=>fillTeam());return;}
+  if(b.id==='pauseSession'){if(!confirm('Pause the exercise? Everyone gets 30 seconds to submit what they are typing, then the HQ saves the session and closes. Start CBP-HQ again and choose this session to resume with the same code and log.'))return;hqPost('hq/pause?s=30').then(r=>{if(r&&r.ok===false)toast(r.text||'Pause not available');fillTeam();});return;}
+  if(b.id==='endSession'){if(!confirm('End the exercise for the whole section? Everyone gets 60 seconds to send or export, then the HQ closes, its memory is cleared and the saved session is deleted. To stop for the night, use Pause session instead.'))return;hqPost('hq/end?s=60').then(()=>fillTeam());return;}
   if(b.dataset.role2ic){hqPost(`hq/role?client=${encodeURIComponent(b.dataset.role2ic)}&role=${b.dataset.to}`).then(()=>setTimeout(fillTeam,200));return;}
   if(b.id==='endCancel'){hqPost('hq/cancel-end').then(()=>fillTeam());return;}
   if(b.id==='teamJoin'){const c=(document.getElementById('teamCode').value||'').trim().toUpperCase();if(!c){toast('Enter the access code');return;}

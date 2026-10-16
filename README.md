@@ -4,7 +4,7 @@ Cyber Battle Pro (CBP) is an incident response command tool for cyber protection
 
 A playbook tells you what to do. CBP helps you lead the people doing it.
 
-It runs on one Windows laptop with no installation and no internet. The Incident Commander starts `CBP-HQ.exe`, analysts join from a browser on their phone or computer, and everything stays in memory on the local network. For exercises, the same file runs as a White Cell console that plays the higher HQ for several teams at once.
+It runs on one Windows laptop with no installation and no internet. The Incident Commander starts `CBP-HQ.exe`, analysts join from a browser on their phone or computer, and everything stays on the local network. Exercises that stop for the night are paused and resumed the next morning with the same code and log. For exercises, the same file runs as a White Cell console that plays the higher HQ for several teams at once.
 
 ![Section panel on the IC laptop](docs/img/section-panel.png)
 
@@ -22,6 +22,7 @@ It runs on one Windows laptop with no installation and no internet. The Incident
 - Host board fed by the findings: compromised, isolated, cleaned, restored
 - Deduplicated IOC table, CSV export, merged team timeline
 - Command rights enforced by the HQ: only the IC and the 2IC issue orders, declare, change phase or severity, and stand down
+- Pause overnight and resume next morning, with an optional passphrase that encrypts the saved session
 
 **Outputs**
 - PowerPoint of the whole session (timeline, findings, hosts, IOCs, evidence, SITREPs, AAR)
@@ -71,7 +72,7 @@ npm run build:win         # dist/CBP-HQ.exe
 npm run build:linux       # dist/CBP-HQ-linux
 ```
 
-Pushing a tag such as `v1.8.0` runs the GitHub workflow in `.github/workflows/release.yml`, which builds both executables on their own platforms and attaches them to a release.
+Pushing a tag such as `v1.9.0` runs the GitHub workflow in `.github/workflows/release.yml`, which builds both executables on their own platforms and attaches them to a release.
 
 The executables are not code signed, so Windows SmartScreen warns on first launch.
 
@@ -82,7 +83,7 @@ The executables are not code signed, so Windows SmartScreen warns on first launc
  ┌──────────────────────────────┐               ┌───────────────────────────────┐
  │ serves the app               │  exercise     │ finds the HQs on the network  │
  │ relays the session log (WSS) │◄──── code ────│ sees status, RFIs, RFCs to WC │
- │ memory only                  │               │ answers, decides, injects     │
+ │ saves for pause and resume   │               │ answers, decides, injects     │
  └──────────────┬───────────────┘               └───────────────────────────────┘
                 │ access code
      ┌──────────┼──────────┐
@@ -92,15 +93,16 @@ The executables are not code signed, so Windows SmartScreen warns on first launc
 | File | Role |
 |---|---|
 | `server.js` | Field HQ: HTTPS and WebSocket server, access control, command rights, pre flight network check, White Cell link |
+| `store.js` | Saved sessions: checkpoint, pause and resume, optional AES 256 GCM encryption |
 | `wc.js` | White Cell mode: discovery, connections to every HQ, console server |
 | `public/index.html` | The app used by the IC and the analysts, also usable standalone |
 | `public/wc.html` | The White Cell console |
 
 ## Data handling
 
-- Nothing is written to disk on the HQ apart from its self signed certificate. Stopping the HQ clears the session.
+- The HQ saves the session in the `sessions` folder next to the exe so it can be paused and resumed. With a passphrase the file is encrypted with AES 256 GCM; without one it is only compressed. **End session** deletes it. `--no-save` keeps everything in memory only.
 - Every device keeps its own copy in memory; if the HQ restarts, devices reconnect and reseed it.
-- A member's device keeps the access code, name and callsign for 12 hours so it can rejoin without the code. It is erased when the member leaves, when the IC ends the session, or when the HQ refuses the code.
+- A member's device keeps the access code, name and callsign for 72 hours so it can rejoin without the code, including after an overnight pause. It is erased when the member leaves, when the IC ends the session, or when the HQ refuses the code.
 - Intended for exercises, training and unclassified work. Do not enter classified information.
 
 ## Background

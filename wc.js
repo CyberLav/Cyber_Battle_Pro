@@ -4,7 +4,8 @@
  * Finds the team HQs on the exercise network, connects to each with the exercise code,
  * and serves the White Cell console on http://localhost (this laptop only).
  * The White Cell sees a summary of each team and the RFIs and RFCs addressed to WC.
- * It answers RFIs and sends injects. Everything is held in memory.
+ * It answers RFIs and sends injects. The console state is checkpointed to the sessions folder
+ * so an exercise paused overnight resumes with its teams, answers and injects.
  */
 const http = require('http');
 const https = require('https');
@@ -17,11 +18,26 @@ const { WebSocketServer } = WebSocket;
 
 const SVC = '_cbp-hq._tcp.local';
 
-exports.start = async function start({ args, ask, openBrowser, genCode, VERSION }) {
+exports.start = async function start({ args, ask, openBrowser, genCode, VERSION, store, DATA_DIR, resume, onStop }) {
   const str = v => (v && v !== true ? String(v) : '');
-  let CODE = str(args['wc-code']).toUpperCase().trim();
-  if (!CODE && process.stdin.isTTY && !args['no-prompt']) CODE = (await ask('\n  WHITE CELL\n\n  Exercise code (press Enter to generate one): ')).toUpperCase().trim();
+  const tty = process.stdin.isTTY && !args['no-prompt'];
+  const NOSAVE = !!args['no-save'];
+  const SAVE = { file: '', pass: '', dirty: false, timer: null, busy: false, at: 0, startedAt: new Date().toISOString() };
+  let CODE = resume ? resume.payload.code : str(args['wc-code']).toUpperCase().trim();
+  if (!CODE && tty) CODE = (await ask('\n  WHITE CELL\n\n  Exercise code (press Enter to generate one): ')).toUpperCase().trim();
   if (!CODE) CODE = genCode();
+  if (resume) { SAVE.file = resume.file; SAVE.pass = resume.pass || ''; SAVE.startedAt = resume.payload.startedAt || SAVE.startedAt; }
+  else if (!NOSAVE) {
+    SAVE.pass = str(args.passphrase);
+    if (!SAVE.pass && tty) for (;;) {
+      const p = await store.askHidden('  Passphrase to protect the saved White Cell session (press Enter for none): ');
+      if (!p) break;
+      if (p.length < 6) { console.log('  Use at least 6 characters, or press Enter for none.'); continue; }
+      if (await store.askHidden('  Type it again: ') === p) { SAVE.pass = p; break; }
+      console.log('  The two entries do not match.');
+    }
+    SAVE.file = store.newFile(DATA_DIR, 'wc', 'white-cell');
+  }
   const PORT = Number(args.port) || 8450;
   const hqs = new Map();            // key -> hq
   const injects = [];               // {id, text, prec, keys, at, sentAt, status}
@@ -36,8 +52,21 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION 
     if (!/^[\w.-]+:\d{2,5}$/.test(address)) return false;
     if (hqs.has(address)) { const h = hqs.get(address); if (team && !h.team) h.team = team; return true; }
     const h = { key: address, address, team: team || '', source, status: 'connecting', reason: '', fp: '', summary: null, items: new Map(), retry: 0, ws: null, timer: null, stopped: false };
-    hqs.set(address, h); connect(h); pushUi();
+    hqs.set(address, h); connect(h); pushUi(); markDirty();
     return true;
+  }
+  // An HQ resumed on another address (new IP in the morning) comes back with the same server ID: fold the old entry into the new one
+  function merge(into, serverId) {
+    for (const old of [...hqs.values()]) {
+      if (old === into || old.serverId !== serverId) continue;
+      for (const [k, v] of old.items) if (!into.items.has(k)) into.items.set(k, v);
+      if (old.pending && old.pending.length) (into.pending = into.pending || []).push(...old.pending);
+      into.team = into.team || old.team;
+      injects.forEach(inj => { inj.keys = inj.keys.map(k => k === old.key ? into.key : k); });
+      old.stopped = true; clearTimeout(old.timer); try { old.ws && old.ws.close(); } catch (e) {}
+      hqs.delete(old.key);
+      log(`${into.team || into.address} is back on a new address (${into.address})`);
+    }
   }
   function connect(h) {
     clearTimeout(h.timer);
@@ -60,20 +89,67 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION 
       if (m.t === 'denied') { h.status = 'refused'; h.reason = m.reason || 'Refused'; h.stopped = /code/i.test(h.reason); pushUi(); return; }
       if (m.t === 'wcwelcome') {
         if (h.serverId && h.serverId !== m.serverId) h.items.clear();
-        h.serverId = m.serverId; h.summary = m.summary; h.team = m.summary.team || h.team;
+        merge(h, m.serverId);
+        h.serverId = m.serverId; h.summary = m.summary; h.team = m.summary.team || h.team; h.paused = false;
         h.status = 'online'; h.reason = ''; h.retry = 0; log(`Connected to ${h.team} (${h.address})`);
-        flushPending(h); pushUi(); return;
+        flushPending(h); pushUi(); markDirty(); return;
       }
-      if (m.t === 'wcsummary') { h.summary = m.summary; pushUi(); return; }
-      if (m.t === 'entries') { for (const it of m.items || []) h.items.set(it.kind + ':' + it.id, it); pushUi(); }
+      if (m.t === 'wcsummary') { h.summary = m.summary; pushUi(); markDirty(); return; }
+      if (m.t === 'hqpaused') { h.paused = true; log(`${h.team || h.address} paused the exercise`); pushUi(); return; }
+      if (m.t === 'entries') { for (const it of m.items || []) h.items.set(it.kind + ':' + it.id, it); pushUi(); markDirty(); }
     });
-    ws.on('close', () => { if (h.ws !== ws) return; h.ws = null; if (h.status !== 'refused' && h.status !== 'blocked') { h.status = 'offline'; later(h); } pushUi(); });
+    ws.on('close', () => { if (h.ws !== ws) return; h.ws = null; if (h.status !== 'refused' && h.status !== 'blocked') { h.status = h.paused ? 'paused' : 'offline'; later(h); } pushUi(); });
     ws.on('error', e => { h.reason = e.code || e.message; });
   }
-  function later(h) { if (h.stopped) return; h.timer = setTimeout(() => connect(h), Math.min(15000, 2000 * 2 ** Math.min(h.retry++, 3))); pushUi(); }
+  function later(h) { if (h.stopped) return; h.timer = setTimeout(() => connect(h), h.paused ? 30000 : Math.min(15000, 2000 * 2 ** Math.min(h.retry++, 3))); pushUi(); }
   function sendTo(h, items) {
+    markDirty();
     if (h.ws && h.ws.readyState === 1 && h.status === 'online') { h.ws.send(JSON.stringify({ t: 'wcpush', items })); return true; }
     (h.pending = h.pending || []).push(...items); return false;
+  }
+
+  /* ---------- Saved session ---------- */
+  function snapshot() {
+    return { v: 1, app: VERSION, code: CODE, startedAt: SAVE.startedAt,
+      hqs: [...hqs.values()].map(h => ({ key: h.key, address: h.address, team: h.team, source: h.source, serverId: h.serverId || '', summary: h.summary, pending: h.pending || [], items: [...h.items.values()] })),
+      injects: injects.map(({ timer, ...x }) => x) };
+  }
+  const meta = () => ({ kind: 'wc', team: 'White Cell', incident: CODE });
+  function markDirty() {
+    if (!SAVE.file) return;
+    SAVE.dirty = true;
+    if (SAVE.timer || SAVE.busy) return;
+    SAVE.timer = setTimeout(checkpoint, Math.max(5000, SAVE.at + 15000 - Date.now()));
+  }
+  async function checkpoint() {
+    SAVE.timer = null; if (!SAVE.dirty || !SAVE.file) return;
+    SAVE.dirty = false; SAVE.busy = true;
+    try { await store.saveAsync(SAVE.file, snapshot(), SAVE.pass, meta()); SAVE.at = Date.now(); SAVE.error = ''; }
+    catch (e) { SAVE.dirty = true; SAVE.error = e.message; log('Could not save the White Cell session: ' + e.message); }
+    SAVE.busy = false; if (SAVE.dirty) markDirty();
+  }
+  function saveNow() {
+    if (!SAVE.file) return false;
+    clearTimeout(SAVE.timer); SAVE.timer = null;
+    try { store.save(SAVE.file, snapshot(), SAVE.pass, meta()); SAVE.at = Date.now(); SAVE.dirty = false; return true; } catch (e) { console.log('  Could not save: ' + e.message); return false; }
+  }
+  if (onStop) onStop(() => saveNow() ? 'White Cell stopped. The session is saved: start CBP-HQ again and choose it to resume.' : '');
+  if (resume) {
+    const d = resume.payload;
+    for (const x of d.hqs || []) {
+      // Certificate pins are not carried over: an HQ laptop that changed address overnight gets a new certificate
+      const h = { key: x.key, address: x.address, team: x.team || '', source: x.source, status: 'connecting', reason: '', fp: '', summary: x.summary || null, serverId: x.serverId || '',
+        items: new Map((x.items || []).map(it => [it.kind + ':' + it.id, it])), pending: x.pending || [], retry: 0, ws: null, timer: null, stopped: false, paused: true };
+      hqs.set(h.key, h);
+    }
+    for (const inj of d.injects || []) {
+      // A scheduled inject whose time passed during the pause is held for the White Cell to send or cancel
+      if (inj.status === 'scheduled') {
+        const at = new Date(inj.at).getTime();
+        if (at > Date.now() + 1000) inj.timer = setTimeout(() => sendInject(inj), at - Date.now()); else inj.status = 'held';
+      }
+      injects.push(inj);
+    }
   }
   function flushPending(h) { if (h.pending && h.pending.length) { const p = h.pending; h.pending = []; sendTo(h, p); } }
 
@@ -151,7 +227,7 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION 
   function onUi(m) {
     if (m.t === 'add') { if (!addHq(m.address, '', 'manual')) uiNotice('Use an address like 192.168.1.20:8443 or cpt1.local:8443'); return; }
     if (m.t === 'scan') { scan(); return; }
-    if (m.t === 'remove') { const h = hqs.get(m.key); if (h) { h.stopped = true; clearTimeout(h.timer); try { h.ws && h.ws.close(); } catch (e) {} hqs.delete(m.key); pushUi(); } return; }
+    if (m.t === 'remove') { const h = hqs.get(m.key); if (h) { h.stopped = true; clearTimeout(h.timer); try { h.ws && h.ws.close(); } catch (e) {} hqs.delete(m.key); pushUi(); markDirty(); } return; }
     if (m.t === 'retry') { const h = hqs.get(m.key); if (h) { h.stopped = false; h.retry = 0; connect(h); } return; }
     if (m.t === 'answer') {
       const h = hqs.get(m.key); const text = String(m.text || '').trim().slice(0, 4000);
@@ -163,6 +239,7 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION 
       log(`${on.toUpperCase()} ${decision ? decision.toLowerCase() : 'answered'} for ${h.team}`); pushUi(); return;
     }
     if (m.t === 'inject') {
+      markDirty();
       const text = String(m.text || '').trim().slice(0, 4000);
       const keys = (m.keys || []).filter(k => hqs.has(k));
       if (!text || !keys.length) return uiNotice('Write the inject and pick at least one team.');
@@ -173,13 +250,22 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION 
       else sendInject(inj);
       return;
     }
-    if (m.t === 'cancel') { const inj = injects.find(x => x.id === m.id && x.status === 'scheduled'); if (inj) { clearTimeout(inj.timer); inj.status = 'cancelled'; pushUi(); } }
+    if (m.t === 'cancel') { const inj = injects.find(x => x.id === m.id && ['scheduled', 'held'].includes(x.status)); if (inj) { clearTimeout(inj.timer); inj.status = 'cancelled'; pushUi(); markDirty(); } return; }
+    if (m.t === 'sendnow') { const inj = injects.find(x => x.id === m.id && ['scheduled', 'held'].includes(x.status)); if (inj) { clearTimeout(inj.timer); sendInject(inj); } return; }
+    if (m.t === 'endex') {
+      if (SAVE.file) store.remove(SAVE.file);
+      SAVE.file = '';
+      log('Exercise ended by the White Cell. The saved session was deleted.');
+      uiNotice('Exercise ended. You can close this tab.');
+      setTimeout(() => process.exit(0), 800);
+    }
   }
 
   /* ---------- Console (this laptop only) ---------- */
   function state() {
     return {
       t: 'state', code: CODE, version: VERSION, now: Date.now(), scanning, lastScan, scanFound,
+      save: SAVE.file ? { on: true, encrypted: !!SAVE.pass, at: SAVE.at || null, error: SAVE.error || '', resumed: !!resume } : { on: false },
       hqs: [...hqs.values()].map(h => ({ key: h.key, address: h.address, team: h.team, status: h.status, reason: h.reason, fp: h.fp, source: h.source, summary: h.summary,
         pending: (h.pending || []).length, items: [...h.items.values()].map(it => ({ kind: it.kind, id: it.id, data: it.data, from: it.from })) })),
       injects: injects.map(({ timer, ...x }) => x)
@@ -219,9 +305,14 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION 
     console.log('  Give this code to every IC. They type it when their HQ asks for the White Cell code.');
     console.log('');
     console.log('  Console: http://localhost:' + PORT + '   (keep this window open)');
+    if (resume) console.log(`  Resumed      ${hqs.size} team(s) and ${injects.length} inject(s) restored`);
+    console.log('  Saved to     ' + (SAVE.file ? 'sessions' + path.sep + path.basename(SAVE.file) + (SAVE.pass ? ' (encrypted)' : ' (no passphrase)') : 'nothing (--no-save)'));
+    if (injects.some(i => i.status === 'held')) console.log('  Some scheduled injects came due during the pause: they are held in the console until you send or cancel them.');
     console.log('  Team HQs on this network are found automatically (local name lookup and a scan of this subnet on port ' + PORTS.join(', ') + ').');
     console.log('');
     if (!args['no-browser']) openBrowser(`http://localhost:${PORT}/`);
   });
   setInterval(() => { if (uiClients.size) pushUi(); }, 15000);
+  if (resume) for (const h of hqs.values()) connect(h);
+  if (SAVE.file) { saveNow(); setInterval(() => { if (SAVE.dirty && !SAVE.timer && !SAVE.busy) checkpoint(); }, 60000); }
 };

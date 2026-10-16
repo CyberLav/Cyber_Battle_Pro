@@ -18,7 +18,7 @@ const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const args = parseArgs(process.argv.slice(2));
 if (args.help) { printHelp(); process.exit(0); }
 
@@ -36,7 +36,9 @@ const HOST = args.host && args.host !== true ? args.host : '0.0.0.0';
 const MAX_CLIENTS = Number(args['max-clients']) || 25;
 const MAX_STORE_BYTES = 512 * 1024 * 1024;
 const KINDS = new Set(['log', 'finding', 'rfi', 'rfc', 'sitrep', 'frago', 'backbrief', 'doc', 'blob', 'state', 'aar', 'wcmsg', 'hoststat']);
-const SERVER_ID = crypto.randomBytes(6).toString('hex');
+let SERVER_ID = crypto.randomBytes(6).toString('hex');   // restored on resume so devices keep their place in the log
+const store = require('./store.js');
+const stopHooks = [];          // White Cell mode saves its own session on Ctrl+C
 const slug = v => String(v || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
 const str = v => (v && v !== true ? String(v) : '');
 
@@ -53,8 +55,10 @@ const isCommand = ws => ['IC', '2IC'].includes(hqRole(ws));
 const COMMAND_DOCS = new Set(['wngo', 'orders', 'frago', 'bb', 'stand']);
 const COMMAND_STATE = new Set(['incident', 'roster', 'incid']);           // {at} while the end of session countdown runs
 
-/* ---------------- Session store (memory only) ---------------- */
+/* ---------------- Session store (memory, checkpointed to disk) ---------------- */
 let SEQ = 0, storeBytes = 0;
+const NOSAVE = !!args['no-save'];
+const SAVE = { file: '', pass: '', dirty: false, timer: null, busy: false, at: 0, error: '', startedAt: new Date().toISOString(), resumed: null };
 const items = [], known = new Map(), clients = new Set(), failures = new Map();
 
 function storeItem(kind, id, data, from) {
@@ -67,22 +71,130 @@ function storeItem(kind, id, data, from) {
   if (storeBytes + size > MAX_STORE_BYTES) return 'full';
   const it = { seq: ++SEQ, kind, id, data, from, size };
   items.push(it); known.set(key, it); storeBytes += size;
+  markDirty();
   return it;
 }
 const pub = it => ({ seq: it.seq, kind: it.kind, id: it.id, data: it.data, from: it.from });
 
 /* ---------------- Start ---------------- */
 async function main() {
+  const tty = process.stdin.isTTY && !args['no-prompt'];
+  const resumed = await pickSaved(tty);
+  if (resumed && resumed.wc) return require('./wc.js').start({ args, ask, openBrowser, genCode, VERSION, store, DATA_DIR, resume: resumed, onStop: f => stopHooks.push(f) });
+  if (resumed) return startHq(resumed);
   TEAM = str(args.team) || str(args.name) || '';
-  if (!TEAM && !args.team && process.stdin.isTTY && !args['no-prompt']) TEAM = await ask('\n  CYBER BATTLE PRO FIELD HQ\n\n  Team for this session (e.g. CPT 1), then press Enter: ');
+  if (!TEAM && !args.team && process.stdin.isTTY && !args['no-prompt']) TEAM = await ask((SAVE.header ? '\n' : '\n  CYBER BATTLE PRO FIELD HQ\n\n') + '  Team for this session (e.g. CPT 1), then press Enter: ');
   TEAM = TEAM.trim().slice(0, 40);
-  if (args['white-cell'] || /^(wc|white\s*cell)$/i.test(TEAM)) return require('./wc.js').start({ args, ask, openBrowser, genCode, VERSION });
+  if (args['white-cell'] || /^(wc|white\s*cell)$/i.test(TEAM)) return require('./wc.js').start({ args, ask, openBrowser, genCode, VERSION, store, DATA_DIR, onStop: f => stopHooks.push(f) });
   WC_CODE = (str(args['wc-code']) || '').toUpperCase().trim();
   if (!WC_CODE && !args['wc-code'] && process.stdin.isTTY && !args['no-prompt']) WC_CODE = (await ask('  White Cell exercise code (press Enter if there is no White Cell): ')).toUpperCase().trim();
   HQ_NAME = slug(args.name) || slug(TEAM) || 'cbp-hq';
   INCIDENT = str(args.incident) || genIncident();
   CODE = (str(args.code) || genCode()).toUpperCase();
+  if (!NOSAVE) {
+    SAVE.pass = str(args.passphrase) || (tty ? await newPassphrase() : '');
+    SAVE.file = store.newFile(DATA_DIR, 'hq', TEAM || HQ_NAME);
+  }
+  return startHq(null);
+}
+
+/* ---------------- Saved sessions ---------------- */
+// At start: offer the sessions paused on this laptop. Returns the decoded session, or null for a new one.
+async function pickSaved(tty) {
+  if (NOSAVE) return null;
+  let list = store.list(DATA_DIR), pick = null;
+  const want = str(args.resume);
+  if (want) {
+    if (want === 'latest') pick = list.find(x => x.kind === (args['white-cell'] ? 'wc' : 'hq'));
+    else pick = list.find(x => x.file === path.resolve(want) || path.basename(x.file) === path.basename(want)) || (fs.existsSync(want) ? { file: path.resolve(want), kind: want.endsWith(store.EXT_WC) ? 'wc' : 'hq', encrypted: true } : null);
+    if (!pick) { console.log('\n  No saved session found for --resume ' + want + '\n'); pauseThenExit(1); return new Promise(() => {}); }
+  } else if (tty && list.length) {
+    console.log('\n  CYBER BATTLE PRO FIELD HQ\n\n  Saved sessions on this laptop:'); SAVE.header = true;
+    list.forEach((x, i) => console.log(`    ${String(i + 1).padStart(2)}  ${x.kind === 'wc' ? 'White Cell' : (x.team || 'HQ')}${x.incident ? '  ' + x.incident : ''}  saved ${store.when(x.savedAt)}${x.encrypted ? '  (passphrase)' : ''}`));
+    const a = (await ask('\n  Type a number to resume, or press Enter for a new session: ')).trim();
+    const n = Number(a);
+    if (a && n >= 1 && n <= list.length) pick = list[n - 1];
+    else if (a) console.log('  Starting a new session.');
+  }
+  if (!pick) return null;
+  let pass = str(args.passphrase), got = null;
+  for (let tries = 0; tries < 3 && !got; tries++) {
+    try { got = store.decode(pick.file, pass); }
+    catch (e) {
+      if (e.code === 'BADPASS' && tries > 0 || (e.code === 'BADPASS' && pass)) console.log('  Wrong passphrase.');
+      else if (e.code !== 'NEEDPASS' && e.code !== 'BADPASS') { console.log('\n  Could not read the saved session: ' + e.message + '\n'); pauseThenExit(1); return new Promise(() => {}); }
+      if (!tty) { console.log('\n  The saved session needs its passphrase: add --passphrase.\n'); pauseThenExit(1); return new Promise(() => {}); }
+      pass = await store.askHidden('  Passphrase for this session: ');
+    }
+  }
+  if (!got) { console.log('\n  Three wrong passphrases. The saved session was left untouched.\n'); pauseThenExit(1); return new Promise(() => {}); }
+  return { file: pick.file, pass, wc: got.head.kind === 'wc', payload: got.payload, head: got.head };
+}
+async function newPassphrase() {
+  for (;;) {
+    const p = await store.askHidden('  Passphrase to protect the saved session (press Enter for none): ');
+    if (!p) { console.log('  The session will be saved without a passphrase.'); return ''; }
+    if (p.length < 6) { console.log('  Use at least 6 characters, or press Enter for none.'); continue; }
+    const c = await store.askHidden('  Type it again: ');
+    if (c === p) return p;
+    console.log('  The two entries do not match.');
+  }
+}
+function restore(r) {
+  const d = r.payload;
+  SAVE.file = r.file; SAVE.pass = r.pass || ''; SAVE.startedAt = d.startedAt || SAVE.startedAt;
+  TEAM = d.team || ''; HQ_NAME = d.hqName || slug(TEAM) || 'cbp-hq'; INCIDENT = d.incident; CODE = d.code; WC_CODE = d.wcCode || '';
+  SERVER_ID = d.serverId || SERVER_ID; TWO_IC = d.twoIc || ''; INTEL = d.intel || '';
+  for (const x of d.items || []) {
+    const it = { seq: x.seq, kind: x.kind, id: x.id, data: x.data, from: x.from, size: Buffer.byteLength(JSON.stringify(x.data)) };
+    items.push(it); known.set(x.kind + ':' + x.id, it); storeBytes += it.size;
+  }
+  SEQ = Math.max(d.seq || 0, ...items.map(i => i.seq), 0);
+  SAVE.resumed = { pausedAt: d.pausedAt || null, savedAt: r.head.savedAt };
+}
+function snapshot(extra) {
+  return { v: 1, app: VERSION, team: TEAM, hqName: HQ_NAME, incident: INCIDENT, code: CODE, wcCode: WC_CODE, serverId: SERVER_ID, seq: SEQ,
+    twoIc: TWO_IC, intel: INTEL, startedAt: SAVE.startedAt, items: items.map(i => ({ seq: i.seq, kind: i.kind, id: i.id, data: i.data, from: i.from })), ...extra };
+}
+const saveMeta = () => ({ kind: 'hq', team: TEAM || HQ_NAME, incident: INCIDENT });
+function markDirty() {
+  if (NOSAVE || !SAVE.file) return;
+  SAVE.dirty = true;
+  if (SAVE.timer || SAVE.busy) return;
+  // At most one checkpoint every 15 s, and never more than 5 s after a change
+  SAVE.timer = setTimeout(checkpoint, Math.max(5000, SAVE.at + 15000 - Date.now()));
+}
+async function checkpoint() {
+  SAVE.timer = null;
+  if (!SAVE.dirty || ending) return;
+  SAVE.dirty = false; SAVE.busy = true;
+  try { await store.saveAsync(SAVE.file, snapshot(), SAVE.pass, saveMeta()); SAVE.at = Date.now(); SAVE.error = ''; }
+  catch (e) { SAVE.error = e.message; SAVE.dirty = true; log('Could not save the session: ' + e.message); }
+  SAVE.busy = false;
+  if (SAVE.dirty) markDirty();
+}
+function saveNow(extra) {
+  if (NOSAVE || !SAVE.file) return false;
+  clearTimeout(SAVE.timer); SAVE.timer = null;
+  try { store.save(SAVE.file, snapshot(extra), SAVE.pass, saveMeta()); SAVE.at = Date.now(); SAVE.dirty = false; return true; }
+  catch (e) { console.log('  Could not save the session: ' + e.message); return false; }
+}
+function hqLog(text) {
+  const ts = new Date().toISOString(), id = 'hq-' + Date.now().toString(36) + crypto.randomBytes(2).toString('hex');
+  const it = storeItem('log', id, { id, ts, type: 'command', text, src: 'Field HQ', by: 'Field HQ', call: 'HQ', origin: 'hq' }, { name: 'Field HQ', call: 'HQ', client: 'hq' });
+  if (it && it !== 'full') broadcast({ t: 'entries', items: [pub(it)] });
+}
+const dtgLocal = d => { const p = n => String(n).padStart(2, '0'), M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${p(d.getUTCHours())}${p(d.getUTCMinutes())}Z ${p(d.getUTCDate())} ${M[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)}`; };
+
+async function startHq(resumed) {
+  if (resumed) restore(resumed);
   MDNS_HOST = args['no-mdns'] ? '' : await freeMdnsName(HQ_NAME);
+  if (resumed) {
+    const p = SAVE.resumed.pausedAt;
+    hqLog(`Exercise resumed at ${dtgLocal(new Date())}${p ? `, paused since ${dtgLocal(new Date(p))}` : ' after an unplanned stop'}. Same incident, access code and log.`);
+    saveNow();
+  } else if (SAVE.file) saveNow();
 
   const handler = (req, res) => route(req, res).catch(err => { console.error(err); send(res, 500, 'text/plain', 'Server error'); });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32 * 1024 * 1024 });
@@ -129,6 +241,7 @@ async function main() {
     }), 25000);
     ICINFO = await buildIcInfo();
     printBanner();
+    if (SAVE.file) setInterval(() => { if (SAVE.dirty && !SAVE.timer && !SAVE.busy) checkpoint(); }, 60000);
     if (!args['no-browser']) openBrowser(`http://localhost:${PORT}/`);
     // Network check runs in the background; it can take several seconds on Windows
     preflight().then(pf => {
@@ -157,8 +270,12 @@ function printBanner() {
   if (!shownInterfaces().length) L('  (no Wi-Fi or Ethernet connection found)');
   if (FINGERPRINT) { L(''); L('Certificate  ' + FINGERPRINT.slice(0, 23) + '…'); }
   L('');
+  if (SAVE.resumed) L('Resumed      ' + items.length + ' entries restored from ' + path.basename(SAVE.file));
+  L('Saved to     ' + (SAVE.file ? 'sessions' + path.sep + path.basename(SAVE.file) + (SAVE.pass ? ' (encrypted)' : ' (no passphrase)') : 'nothing (--no-save)'));
+  L('');
   L('IC: the app opens in your browser. If it does not, open  http://localhost:' + PORT);
-  L('Keep this window open: closing it ends the session.');
+  L('Pause session in the Section panel saves everything for tomorrow.');
+  L('End session closes the exercise and deletes the saved file.');
   console.log('');
 }
 
@@ -170,7 +287,8 @@ async function route(req, res) {
   if (req.method === 'POST' && p.startsWith('/hq/')) {
     if (!local || req.headers['x-cbp'] !== '1') return send(res, 403, 'text/plain', 'Forbidden');
     if (p === '/hq/fix') return send(res, 200, 'application/json', JSON.stringify(await fixNetwork()));
-    if (p === '/hq/end') { startEnding(Number(url.searchParams.get('s')) || 60); return send(res, 200, 'application/json', '{"ok":true}'); }
+    if (p === '/hq/end') { startEnding(Number(url.searchParams.get('s')) || 60, 'end'); return send(res, 200, 'application/json', '{"ok":true}'); }
+    if (p === '/hq/pause') { if (NOSAVE) return send(res, 400, 'application/json', '{"ok":false,"text":"This HQ was started with --no-save."}'); startEnding(Number(url.searchParams.get('s')) || 30, 'pause'); return send(res, 200, 'application/json', '{"ok":true}'); }
     if (p === '/hq/cancel-end') { cancelEnding(); return send(res, 200, 'application/json', '{"ok":true}'); }
     if (p === '/hq/role') {
       const c = [...clients].find(x => x.meta.id === url.searchParams.get('client'));
@@ -182,6 +300,7 @@ async function route(req, res) {
       clients.forEach(x => out(x, { t: 'role', role: hqRole(x) }));
       sendPresence();
       log(`${label(c)} is now ${hqRole(c) === 'member' ? 'a section member' : hqRole(c)}`);
+      markDirty();
       return send(res, 200, 'application/json', '{"ok":true}');
     }
     return send(res, 404, 'text/plain', 'Not found');
@@ -245,7 +364,7 @@ function onSocket(ws, req) {
       const backlog = items.filter(it => it.seq > have).map(pub);
       for (let i = 0; i < backlog.length; i += 200) out(ws, { t: 'entries', items: backlog.slice(i, i + 200) });
       out(ws, { t: 'synced', seq: SEQ });
-      if (ending) out(ws, { t: 'ending', at: ending.at });
+      if (ending) out(ws, { t: 'ending', at: ending.at, mode: ending.mode });
       sendPresence();
       log(`${label(ws)} joined (${clients.size} connected)`);
       return;
@@ -318,23 +437,40 @@ function status() {
   const count = k => items.filter(i => i.kind === k).length;
   return { incident: INCIDENT, team: TEAM, members: members(), whiteCell: wcClients.size, wcCode: !!WC_CODE, ending: ending ? ending.at : null,
     counts: { log: count('log'), finding: count('finding'), rfi: count('rfi'), rfc: count('rfc'), artifacts: count('blob') },
-    memoryMB: +(storeBytes / 1048576).toFixed(1) };
+    memoryMB: +(storeBytes / 1048576).toFixed(1), paused: ending && ending.mode === 'pause',
+    save: NOSAVE ? { on: false } : { on: true, file: path.basename(SAVE.file), encrypted: !!SAVE.pass, at: SAVE.at || null, error: SAVE.error || '', resumed: SAVE.resumed } };
 }
 
 /* ---------------- End of session ---------------- */
-function startEnding(seconds) {
+// mode 'end': the exercise is over, the saved file is deleted. mode 'pause': everything is saved and the HQ closes until it is started again.
+function startEnding(seconds, mode) {
   if (ending) return;
   seconds = Math.max(10, Math.min(600, seconds));
-  ending = { at: Date.now() + seconds * 1000 };
+  if (mode === 'pause') hqLog(`Exercise paused by the IC at ${dtgLocal(new Date())}. The HQ closes in ${seconds} s and resumes with the same code and log.`);
+  ending = { at: Date.now() + seconds * 1000, mode };
   ending.timer = setTimeout(() => {
-    broadcast({ t: 'ended' });
-    log('Session ended by the IC. Memory cleared.');
+    if (mode === 'pause') {
+      const ok = saveNow({ pausedAt: new Date().toISOString() });
+      broadcast({ t: 'ended', mode: ok ? 'pause' : 'end' });
+      if (ok) wcSend({ t: 'hqpaused' });
+      log(ok ? `Session paused and saved to sessions${path.sep}${path.basename(SAVE.file)}` : 'Pause failed: the session could not be saved.');
+      if (ok) console.log('\n  Start CBP-HQ again and choose this session to resume.\n');
+    } else {
+      broadcast({ t: 'ended' });
+      if (SAVE.file) store.remove(SAVE.file);
+      log('Session ended by the IC. Memory cleared' + (SAVE.file ? ' and the saved file deleted.' : '.'));
+    }
+    SAVE.file = '';
     setTimeout(() => process.exit(0), 800);
   }, seconds * 1000);
-  broadcast({ t: 'ending', at: ending.at });
-  log(`End of session in ${seconds} s.`);
+  broadcast({ t: 'ending', at: ending.at, mode });
+  log(`${mode === 'pause' ? 'Pause' : 'End of session'} in ${seconds} s.`);
 }
-function cancelEnding() { if (!ending) return; clearTimeout(ending.timer); ending = null; broadcast({ t: 'ending-cancelled' }); log('End of session cancelled.'); }
+function cancelEnding() {
+  if (!ending) return; clearTimeout(ending.timer); const m = ending.mode; ending = null;
+  if (m === 'pause') hqLog('Pause cancelled by the IC.');
+  broadcast({ t: 'ending-cancelled', mode: m }); log((m === 'pause' ? 'Pause' : 'End of session') + ' cancelled.');
+}
 
 /* ---------------- IC panel data ---------------- */
 async function buildIcInfo() {
@@ -539,12 +675,25 @@ Options:
   --all-interfaces   Also list virtual adapters (VMware, Hyper-V, WSL, Docker, VPN)
   --http             No TLS at all. Testing only
   --max-clients N    Maximum connected devices (default 25)
+
+Saved sessions (sessions folder next to CBP-HQ):
+  --resume FILE      Resume a saved session (a file name, or "latest")
+  --passphrase TEXT  Passphrase for the saved session (asked in the window otherwise)
+  --no-save          Keep everything in memory only, as before 1.9
 `);
 }
 process.on('uncaughtException', err => {
   console.log('\n  The HQ stopped because of an error:\n  ' + (err && err.stack || err) + '\n');
+  if (SAVE.file && saveNow()) console.log('  The session was saved. Start CBP-HQ again and choose it to resume.\n');
   pauseThenExit(1);
 });
-process.on('SIGINT', () => { console.log('\n  Field HQ stopped. Session data held in memory has been cleared.\n'); process.exit(0); });
+// Ctrl+C, closing the window, shutdown: keep the session so it can be resumed
+function stopped() {
+  if (stopHooks.length) { const msg = stopHooks.map(f => f()).filter(Boolean).join('\n  '); console.log('\n  ' + (msg || 'White Cell stopped.') + '\n'); process.exit(0); }
+  if (SAVE.file && saveNow({ pausedAt: new Date().toISOString() })) console.log('\n  Field HQ stopped. The session is saved: start CBP-HQ again and choose it to resume.\n');
+  else console.log('\n  Field HQ stopped. Session data held in memory has been cleared.\n');
+  process.exit(0);
+}
+['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK'].forEach(sig => { try { process.on(sig, stopped); } catch (e) {} });
 
 main();

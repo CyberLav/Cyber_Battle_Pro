@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0
+- **Pause session** in the Section panel: everyone gets 30 seconds, the HQ saves the session and closes. Next start lists the saved sessions; resuming brings back the same team, incident, access code, log, evidence, orders, tasks and roles.
+- Analysts reconnect by themselves after a pause, or rejoin without the code (rejoin record kept 72 hours).
+- Optional passphrase at the start of a session: the saved file is encrypted with AES 256 GCM (scrypt key). Without it, the file is only compressed.
+- Automatic checkpoint a few seconds after every change, and on Ctrl+C or window close, so a crash loses nothing the devices cannot push back.
+- The H clock keeps running through a pause; the log records the pause and the resume.
+- White Cell console saved and resumed too. Scheduled injects that came due during the pause are held for **Send now** or **Cancel**. **End exercise** deletes the White Cell file. An HQ that comes back on a new address is merged with its old entry.
+- **End session** now also deletes the saved file. New options `--resume`, `--passphrase`, `--no-save`.
+- Orders already written or acknowledged no longer show again as banners after a reload.
+
 ## 1.8.0
 - Requests for the White Cell are addressed to **WC** instead of 1UP, in the team app and the console.
 - Members rejoin after a reload or a reopened tab without typing the code again (kept 12 hours, erased on leave, end of session or refusal).

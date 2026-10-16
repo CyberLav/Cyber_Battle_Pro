@@ -12,10 +12,10 @@ Options, network, certificates and security for `CBP-HQ.exe`. For the short proc
 
 Double click `CBP-HQ.exe` (or `start-hq.bat` / `start-hq.sh` from source). Type `WC` as the team to run the White Cell console instead.
 
-- Every start: type the team for this session (e.g. `CPT 1`). It gives the address `cpt1.local`. Then type the White Cell exercise code, or press Enter if there is no White Cell. Nothing is saved between sessions.
+- Every start: type the team for this session (e.g. `CPT 1`). It gives the address `cpt1.local`. Then type the White Cell exercise code, or press Enter if there is no White Cell, and an optional passphrase for the saved session. If sessions were paused on this laptop, they are listed first so you can resume one.
 - The incident ID and a readable access code (e.g. `RAVEN-4721`) are generated.
 - The app opens in the browser at `http://localhost:8443` for the IC, with no certificate warning, and the Section panel shows the QR code, addresses, code, pre-flight check and who is connected.
-- Keep the HQ window open: closing it ends the session. Use **End session** in the Section panel for a clean close.
+- Keep the HQ window open while the exercise runs. Use **Pause session** to stop for the night and **End session** at the end of the exercise.
 
 Options: `CBP-HQ.exe --team "CPT 2" --incident INC-261001-02 --code ALFA-2024 --port 9443 --no-browser`. `--help` lists all.
 
@@ -75,17 +75,39 @@ Only real Wi-Fi and Ethernet addresses are shown. Virtual adapters (VMware, Hype
 
 Drafts stay on each device until submitted.
 
-A member who reloads the page or reopens the tab rejoins without the code: the device keeps the code, name and callsign for 12 hours, only for that HQ, and erases them when the member leaves, when the IC ends the session, or when the HQ refuses the code.
+A member who reloads the page or reopens the tab rejoins without the code: the device keeps the code, name and callsign for 72 hours, only for that HQ, and erases them when the member leaves, when the IC ends the session, or when the HQ refuses the code.
 
 ## If the IC laptop fails
 
-Every device keeps a full copy. Start the HQ on any laptop with the same incident ID and code:
+If the same laptop comes back, start CBP-HQ and resume the saved session (see Pausing overnight).
+
+If it is gone for good, every device still keeps a full copy. Start the HQ on any other laptop with the same incident ID and code:
 
 ```
 CBP-HQ.exe --team "CPT 1" --incident INC-261001-07 --code ALFA-2024
 ```
 
 Devices that reconnect push their copy and the new server is reseeded automatically. Devices loaded from the old laptop's address must reopen the app at the new address.
+
+## Pausing overnight
+
+Exercises often stop at the end of the day and pick up the next morning. The HQ keeps the session for you.
+
+- **Pause session** in the Section panel gives everyone 30 seconds to submit what they are typing, saves the session and closes the HQ. Analysts see an orange bar saying the exercise is paused.
+- Next morning, start `CBP-HQ.exe` again. It lists the saved sessions on this laptop: type the number and press Enter, then the passphrase if you set one. The team, incident ID, access code, log, findings, evidence, orders, tasks and 2IC/Intel designations all come back.
+- Analysts do nothing. A page left open reconnects by itself within 30 seconds; a closed tab rejoins without the code when they open the same address (the device remembers it for 72 hours).
+- The H clock keeps running through the night. The log records when the exercise was paused and when it resumed.
+- **End session** is for the real end of the exercise: it closes the HQ and deletes the saved file.
+
+The HQ also writes a checkpoint a few seconds after every change. If the laptop crashes, runs out of battery or the window is closed by mistake, start CBP-HQ again and pick the session: devices push back anything the last checkpoint missed.
+
+**Passphrase.** When a new session starts, the HQ asks for an optional passphrase. With one, the saved file is encrypted (AES 256 GCM, key derived with scrypt) and the session cannot be resumed without it. Without one, the file is only compressed: fine for training on a closed network, not for anything sensitive. There is no way to recover a forgotten passphrase.
+
+Saved sessions live in the `sessions` folder next to `CBP-HQ.exe`. Copy that folder with the exe if you move to another laptop. If the laptop gets a different IP address overnight, the HQ makes a new certificate and devices see the certificate warning once more: check the fingerprint again.
+
+The White Cell works the same way: closing its window saves the console (teams, answers, injects). At the next start, pick the White Cell session from the list. Injects that were scheduled for a time that passed during the pause are **held** until the White Cell clicks **Send now** or **Cancel**. **End exercise** in the console deletes the White Cell file.
+
+Options: `--resume latest` (or a file name) skips the list, `--passphrase TEXT` avoids the prompt, `--no-save` keeps everything in memory only, as before 1.9.
 
 ## Certificates
 
@@ -108,6 +130,7 @@ iPhones may refuse live sync with a self signed certificate even after accepting
 - Join requires the access code; the incident number is not a password. Ten failed attempts from one address block it for ten minutes.
 - WebSocket connections from other web origins are refused.
 - The IC console is only reachable from the IC laptop itself.
+- The saved session holds everything the HQ holds, evidence included. Use a passphrase outside a closed training network, and delete the `sessions` folder (or use End session) when the exercise is over.
 - Memory cap 512 MB; large evidence should be recorded as hash references.
 - Firewall: allow inbound TCP on the chosen port, and UDP 5353 for the `.local` name, on the section network only.
 

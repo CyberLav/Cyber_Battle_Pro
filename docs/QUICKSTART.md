@@ -6,6 +6,7 @@
 2. Double click **CBP-HQ.exe**.
    - The black window asks for the team for this session. Type it (e.g. `CPT 1`) and press Enter. Nothing else starts until you do. It is asked at every start.
    - It then asks for the White Cell exercise code. Type it if there is a White Cell, otherwise press Enter.
+   - Last, an optional passphrase that protects the saved session. Press Enter to skip it on a closed training network.
    - If Windows SmartScreen appears: *More info*, then *Run anyway*.
    - If Windows asks about network access: *Allow*.
 3. The app opens in your browser. If it does not, open **http://localhost:8443** yourself. Enter your name and callsign (the HQ laptop is always the IC).
@@ -14,9 +15,11 @@
 5. Optional: in the Section panel, click **Make 2IC** or **Make Intel** next to a member. Only the IC laptop and the 2IC can issue orders, deliver the back brief, declare, change the incident ID or phase, or reclassify severity. The Section list on the Declare page fills in automatically as people join.
 6. Brief the section: show the panel (or *Projector view*), or click an address to copy a join link for Signal or Teams.
 7. Run the incident.
-8. At the end: export the PowerPoint, then **End session** in the Section panel. Everyone gets 60 seconds to send or export, then the HQ closes and its memory is cleared.
+8. End of the day: **Pause session** in the Section panel. Everyone gets 30 seconds, then the HQ saves the session and closes.
+9. Next morning: double click **CBP-HQ.exe**, type the number of the saved session and its passphrase. Same address, code and log; analysts reconnect by themselves.
+10. End of the exercise: export the PowerPoint, then **End session**. Everyone gets 60 seconds to send or export, then the HQ closes and the saved session is deleted.
 
-Keep the black HQ window open during the session. Closing it ends the session.
+Keep the black HQ window open while the exercise runs. If it closes by accident, start it again and pick the session: it is checkpointed a few seconds after every change.
 
 ## Analyst
 
@@ -27,6 +30,7 @@ Keep the black HQ window open during the session. Closing it ends the session.
 - Record findings in the Findings journal and link MITRE ATT&CK techniques; entries collapse to one line, click to expand.
 - Acknowledge new tasks from the red banner, and update host status on the Host board.
 - If the page reloads, you rejoin by yourself without the code.
+- If the IC pauses the exercise, an orange bar says so. Leave the page open or come back to the same address tomorrow: you rejoin without the code.
 - When the red bar says the HQ is closing, use **Send to IC** or export what you need.
 
 ## Several teams on one network
@@ -53,7 +57,8 @@ The White Cell (WC) plays the higher HQ and everyone the teams do not have. It s
 1. Double click **CBP-HQ.exe** and type `WC` when it asks for the team.
 2. Press Enter to generate an exercise code (or type one). Give this code to every IC.
 3. The White Cell console opens in the browser. HQs started with the exercise code on the same network appear by themselves: the console looks them up by local name and also checks its own subnet on port 8443 every 45 seconds (**Scan network** runs it now). If an HQ uses another port, start with `--scan-ports 9443`, or add it by address.
-4. From the console: answer RFIs, approve or reject RFCs (with a comment, or ask for more information), send injects to one team or all (now or at a set time), and follow response times. **Export log (CSV)** keeps a record for the hot wash.
+4. To stop for the night, close the black window: the console is saved. Next start, pick the White Cell session from the list. Injects that came due during the pause wait for **Send now** or **Cancel**. **End exercise** deletes the saved White Cell session.
+5. From the console: answer RFIs, approve or reject RFCs (with a comment, or ask for more information), send injects to one team or all (now or at a set time), and follow response times. **Export log (CSV)** keeps a record for the hot wash.
 
 **Each IC**
 - When the HQ asks for the White Cell code, type the exercise code. Press Enter to run without a White Cell.

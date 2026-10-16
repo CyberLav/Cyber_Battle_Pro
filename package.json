@@ -1,6 +1,6 @@
 {
   "name": "cyber-battle-pro",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Cyber Battle Pro: incident response command tool with a Field HQ team server and White Cell console",
   "main": "server.js",
   "scripts": {
@@ -8,8 +8,8 @@
     "help": "node server.js --help",
     "white-cell": "node server.js --white-cell",
     "build": "npm run build:win && npm run build:linux",
-    "build:win": "pkg . --targets node22-win-x64 --no-bytecode --public-packages \"*\" --public --compress GZip --output dist/CBP-HQ.exe",
-    "build:linux": "pkg . --targets node22-linux-x64 --no-bytecode --public-packages \"*\" --public --compress GZip --output dist/CBP-HQ-linux"
+    "build:win": "pkg . --targets node22-win-x64 --no-bytecode --public-packages \"*\" --public --compress Brotli --output dist/CBP-HQ.exe",
+    "build:linux": "pkg . --targets node22-linux-x64 --no-bytecode --public-packages \"*\" --public --compress Brotli --output dist/CBP-HQ-linux"
   },
   "license": "UNLICENSED",
   "dependencies": {
@@ -30,6 +30,17 @@
       "public/**/*",
       "node_modules/pptxgenjs/dist/pptxgen.bundle.js",
       "node_modules/pdf-lib/dist/pdf-lib.min.js"
+    ],
+    "ignore": [
+      "**/*.map",
+      "**/*.d.ts",
+      "**/*.md",
+      "**/node_modules/pdf-lib/{cjs,es,src,ts3.4}/**",
+      "**/node_modules/pdf-lib/dist/pdf-lib.{js,esm.js,esm.min.js}",
+      "**/node_modules/@pdf-lib/**",
+      "**/node_modules/pptxgenjs/{src,types}/**",
+      "**/node_modules/pptxgenjs/dist/pptxgen.{cjs,es,min}.js",
+      "**/node_modules/{jszip,image-size,@types,undici-types,pako,lie,immediate,setimmediate,queue,https}/**"
     ]
   },
   "devDependencies": {
@@ -37,7 +48,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/CyberLav/cyber-battle-pro.git"
+    "url": "https://github.com/CyberLav/Cyber_Battle_Pro.git"
   },
   "homepage": "https://cyberlav.io",
   "author": "Alexander Lavrinenko"

@@ -27,6 +27,7 @@ const APP_DIR = __dirname;
 const DATA_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CERT_DIR = path.join(DATA_DIR, 'certs');
 const PUBLIC = path.join(APP_DIR, 'public');
+const BRAND = path.join(PUBLIC, 'brand');   // logo set shared with cyberbattlepro.ca
 const PPTX_BUNDLE = path.join(APP_DIR, 'node_modules', 'pptxgenjs', 'dist', 'pptxgen.bundle.js');
 const PDFLIB_BUNDLE = path.join(APP_DIR, 'node_modules', 'pdf-lib', 'dist', 'pdf-lib.min.js');
 
@@ -320,7 +321,10 @@ async function route(req, res) {
     if (p === '/hq/preflight') return send(res, 200, 'application/json', JSON.stringify(await preflight()));
     if (p === '/hq') return send(res, 200, 'text/html; charset=utf-8', hqPage());
   }
-  if (p === '/favicon.ico') return send(res, 204, 'text/plain', '');
+  if (p === '/favicon.ico') return sendFile(res, path.join(BRAND, 'favicon.ico'), 'image/x-icon');
+  if (p === '/apple-touch-icon.png') return sendFile(res, path.join(BRAND, 'apple-touch-icon.png'), 'image/png');
+  const bm = /^\/brand\/([\w-]+\.(svg|png|ico))$/.exec(p);
+  if (bm) return sendFile(res, path.join(BRAND, bm[1]), { svg: 'image/svg+xml', png: 'image/png', ico: 'image/x-icon' }[bm[2]]);
   return send(res, 404, 'text/plain', 'Not found');
 }
 function send(res, code, type, body) {
@@ -488,12 +492,14 @@ function hqPage() {
   // Large display for a projector during the briefing
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const a = ICINFO.addresses, q = a.find(x => x.qr);
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(TEAM || 'Field HQ')}</title>
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(TEAM || 'Field HQ')}</title><link rel="icon" href="/favicon.ico">
 <style>body{margin:0;font:18px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#16202B;color:#fff;display:grid;place-items:center;min-height:100vh}
-.w{display:grid;grid-template-columns:auto 1fr;gap:48px;align-items:center;padding:32px}img{width:340px;height:340px;background:#fff;border-radius:8px;padding:8px}
+.w{display:grid;grid-template-columns:auto 1fr;gap:48px;align-items:center;padding:32px}img.qr{width:340px;height:340px;background:#fff;border-radius:8px;padding:8px}
+.brand{position:fixed;top:20px;left:28px;display:flex;align-items:center;gap:12px;font:700 22px system-ui,sans-serif;color:#E4E9EE}.brand img{width:56px;height:42px}
 h1{margin:0 0 4px;font-size:40px}.m{color:#95A2AF}.c{font:700 64px ui-monospace,Consolas,monospace;letter-spacing:.06em;margin:6px 0 18px}
 code{display:block;font:600 28px ui-monospace,Consolas,monospace;margin:4px 0}@media(max-width:800px){.w{grid-template-columns:1fr}}</style></head><body>
-<div class="w">${q ? `<img src="${q.qr}" alt="Join QR code">` : ''}<div><h1>${esc(TEAM || 'Field HQ')}</h1><div class="m">Incident ${esc(INCIDENT)}</div>
+<div class="brand"><img src="/brand/logo-dark.svg" alt="">Cyber Battle Pro</div>
+<div class="w">${q ? `<img class="qr" src="${q.qr}" alt="Join QR code">` : ''}<div><h1>${esc(TEAM || 'Field HQ')}</h1><div class="m">Incident ${esc(INCIDENT)}</div>
 <p class="m" style="margin-top:24px">Phone: scan the code. Computer: open</p>${a.map(x => `<code>${esc(x.label)}</code>`).join('')}
 <p class="m" style="margin-top:20px">Access code</p><div class="c">${esc(CODE)}</div>${FINGERPRINT ? `<div class="m">Certificate ${esc(FINGERPRINT.slice(0, 23))}…</div>` : ''}</div></div></body></html>`;
 }

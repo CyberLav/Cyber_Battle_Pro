@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/brand/logo-dark.svg">
+    <img src="public/brand/logo-light.svg" alt="Cyber Battle Pro winged helmet logo" width="160">
+  </picture>
+</p>
+
 # Cyber Battle Pro
 
 Cyber Battle Pro (CBP) is an incident response command tool for cyber protection teams. It walks a section from the warning order to the after action review using NATO and Commonwealth battle procedure on top of SANS PICERL, and keeps the whole team on one live picture during the incident.
@@ -97,6 +104,7 @@ The executables are not code signed, so Windows SmartScreen warns on first launc
 | `wc.js` | White Cell mode: discovery, connections to every HQ, console server |
 | `public/index.html` | The app used by the IC and the analysts, also usable standalone |
 | `public/wc.html` | The White Cell console |
+| `public/brand/` | Logo set shared with cyberbattlepro.ca: light and dark SVG, favicon, app icons, social preview image |
 
 ## Data handling
 

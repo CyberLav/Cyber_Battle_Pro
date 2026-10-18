@@ -280,7 +280,9 @@ exports.start = async function start({ args, ask, openBrowser, genCode, VERSION,
     const p = new URL(req.url, 'http://x').pathname;
     const send = (code, type, body) => { res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY' }); res.end(body); };
     if (p === '/' || p === '/index.html') return fs.readFile(path.join(__dirname, 'public', 'wc.html'), (e, b) => e ? send(404, 'text/plain', 'Not found') : send(200, 'text/html; charset=utf-8', b));
-    if (p === '/favicon.ico') return send(204, 'text/plain', '');
+    const BRAND = path.join(__dirname, 'public', 'brand');
+    const brandFile = p === '/favicon.ico' ? 'favicon.ico' : (/^\/brand\/([\w-]+\.(svg|png|ico))$/.exec(p) || [])[1];
+    if (brandFile) return fs.readFile(path.join(BRAND, brandFile), (e, b) => e ? send(404, 'text/plain', 'Not found') : send(200, { svg: 'image/svg+xml', png: 'image/png', ico: 'image/x-icon' }[brandFile.split('.').pop()], b));
     send(404, 'text/plain', 'Not found');
   });
   const wss = new WebSocketServer({ noServer: true });

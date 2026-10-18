@@ -9,6 +9,8 @@
 - White Cell console saved and resumed too. Scheduled injects that came due during the pause are held for **Send now** or **Cancel**. **End exercise** deletes the White Cell file. An HQ that comes back on a new address is merged with its old entry.
 - **End session** now also deletes the saved file. New options `--resume`, `--passphrase`, `--no-save`.
 - Orders already written or acknowledged no longer show again as banners after a reload.
+- Version number (v1.9.0) in the right corner of the footer of the app and the White Cell console.
+- Winged helmet logo from cyberbattlepro.ca in the app header, White Cell console, projector view, browser tab icon, PowerPoint title slide and findings journal PDF. It follows the light and dark theme.
 
 ## 1.8.0
 - Requests for the White Cell are addressed to **WC** instead of 1UP, in the team app and the console.

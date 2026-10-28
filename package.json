@@ -11,7 +11,7 @@
     "build:win": "pkg . --targets node22-win-x64 --no-bytecode --public-packages \"*\" --public --compress Brotli --output dist/CBP-HQ.exe",
     "build:linux": "pkg . --targets node22-linux-x64 --no-bytecode --public-packages \"*\" --public --compress Brotli --output dist/CBP-HQ-linux"
   },
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "multicast-dns": "^7.2.5",
     "pdf-lib": "^1.17.1",

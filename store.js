@@ -1,3 +1,12 @@
+/*
+ * Cyber Battle Pro
+ * Copyright (C) 2026 Alexander Lavrinenko <https://cyberlav.io>
+ * SPDX-License-Identifier: AGPL-3.0-only
+ *
+ * Free software under the GNU Affero General Public License version 3, with the
+ * additional terms in NOTICE (author credit, marking of modified versions, name and logo).
+ * It comes with NO WARRANTY. See LICENSE and NOTICE, or <https://www.gnu.org/licenses/>.
+ */
 'use strict';
 /*
  * Cyber Battle Pro, saved sessions

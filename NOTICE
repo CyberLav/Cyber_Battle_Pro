@@ -1,0 +1,56 @@
+Cyber Battle Pro
+Copyright (C) 2026 Alexander Lavrinenko
+https://cyberlav.io  ·  https://cyberbattlepro.ca
+
+Cyber Battle Pro is free software. You can use it, study it, change it and
+share it under the GNU Affero General Public License, version 3 only
+(SPDX: AGPL-3.0-only), together with the additional terms below.
+The full license text is in the LICENSE file.
+
+
+ADDITIONAL TERMS UNDER SECTION 7 OF THE GNU AGPL VERSION 3
+
+These terms are part of the license of Cyber Battle Pro. Anyone who conveys
+the program, or a work based on it, must pass them on with it.
+
+1. Author credit (section 7(b))
+
+   Every copy and every modified version, whether it is conveyed or used by
+   people over a network, must keep this notice visible in its user interface
+   during normal use, in the page footer or a place that is just as visible,
+   with a working link to https://cyberlav.io :
+
+       Cyber Battle Pro by Alexander Lavrinenko · Powered by cyberlav.io
+
+   The notice must not be removed, hidden or made hard to read. The copyright
+   notices in the source files and this NOTICE file must also be kept.
+
+2. Modified versions (section 7(c))
+
+   A modified version must be marked as different from the original, for
+   example "Based on Cyber Battle Pro by Alexander Lavrinenko", and must not
+   suggest that Alexander Lavrinenko wrote, reviewed or endorses the changes.
+
+3. Name and logo (section 7(e))
+
+   This license gives no right to use the name "Cyber Battle Pro", the winged
+   helmet logo, or the names cyberlav.io and cyberbattlepro.ca as trademarks,
+   except to keep the notice in point 1 and to say truthfully where the work
+   comes from. A modified version that is distributed to others must use its
+   own name and logo, unless the author agrees in writing.
+
+
+OTHER LICENSES
+
+The author holds the copyright in Cyber Battle Pro and can offer it under
+other terms. An organization that cannot accept the AGPL, for example to keep
+its changes private or to include the program in a closed product, can ask for
+a commercial license through https://cyberlav.io .
+
+
+THIRD PARTY SOFTWARE
+
+The Field HQ uses open source packages that keep their own licenses (MIT, ISC,
+BSD 3 Clause, Apache 2.0, 0BSD and Zlib). Their license files are in each
+package folder under node_modules. The Barlow fonts are loaded from Google
+Fonts under the SIL Open Font License 1.1.

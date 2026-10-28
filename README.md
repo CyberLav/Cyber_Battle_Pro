@@ -119,4 +119,18 @@ CBP grew out of the incident response toolkit on [cyberlav.io](https://cyberlav.
 
 See [CHANGELOG.md](CHANGELOG.md) for the version history.
 
+## License
+
+Cyber Battle Pro is free software under the [GNU Affero General Public License v3](LICENSE) (AGPL-3.0-only), with additional terms in [NOTICE](NOTICE):
+
+- keep the visible credit "Cyber Battle Pro by Alexander Lavrinenko · Powered by cyberlav.io" in the interface;
+- mark modified versions as different from the original;
+- the name Cyber Battle Pro and the winged helmet logo are not licensed to modified versions.
+
+Using it is free, for military units and companies alike. If you change it and give it to others, or run a changed version for others over a network, you share your changes under the same license. Organizations that need other terms can ask for a commercial license through [cyberlav.io](https://cyberlav.io).
+
+## Contributing
+
+Bug reports and ideas are welcome as issues. Code goes through pull requests and needs a single signature of the [Contributor License Agreement](CLA.md): the CLA bot asks for it on your first pull request. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 © 2026 Alexander Lavrinenko · [cyberlav.io](https://cyberlav.io)

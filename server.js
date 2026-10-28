@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/*
+ * Cyber Battle Pro
+ * Copyright (C) 2026 Alexander Lavrinenko <https://cyberlav.io>
+ * SPDX-License-Identifier: AGPL-3.0-only
+ *
+ * Free software under the GNU Affero General Public License version 3, with the
+ * additional terms in NOTICE (author credit, marking of modified versions, name and logo).
+ * It comes with NO WARRANTY. See LICENSE and NOTICE, or <https://www.gnu.org/licenses/>.
+ */
 'use strict';
 /*
  * Cyber Battle Pro, Field HQ server v1.1
@@ -277,6 +286,7 @@ function printBanner() {
   L('IC: the app opens in your browser. If it does not, open  http://localhost:' + PORT);
   L('Pause session in the Section panel saves everything for tomorrow.');
   L('End session closes the exercise and deletes the saved file.');
+  L('Free software under the GNU AGPL v3, see LICENSE and NOTICE.');
   console.log('');
 }
 
